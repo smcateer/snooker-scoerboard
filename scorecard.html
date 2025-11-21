@@ -2,66 +2,47 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Dynamic SVG Demo</title>
+<title>Snooker Scoreboard</title>
 <style>
-  body { font-family: sans-serif; padding: 20px; }
-  #svg-area { margin-top: 20px; }
-  input { margin: 5px 0; }
+    body { font-family: sans-serif; padding: 20px; }
+    #svg-area { margin-top: 20px; }
+    input { margin: 5px 0; }
 </style>
 </head>
 <body>
 
 <h3>Snooker scoreboard</h3>
-
-<label>
-  Player A score:
-  <input id="scoreA" type="number" value="0">
-</label><br>
-
-<label>
-  Player B score:
-  <input id="scoreB" type="number" value="0">
-</label><br>
-
-<label>
-  Reds on table:
-  <input id="reds" type="number" value="15">
-</label><br>
-
-<label>
-  <input id="yl" type="checkbox" checked>
-  yellow
-</label>
-
-<label>
-  <input id="gr" type="checkbox" checked>
-  green
-</label>
-
-<label>
-  <input id="br" type="checkbox" checked>
-  brown
-</label>
-
-<label>
-  <input id="bl" type="checkbox" checked>
-  blue
-</label>
-
-<label>
-  <input id="pk" type="checkbox" checked>
-  pink
-</label>
-
-<label>
-  <input id="bk" type="checkbox" checked>
-  black
-</label>
+<!-- Input fields for scores and remaining balls -->
+<label> Player A score: <input id="scoreA" type="number" value="0"> </label><br>
+<label> Player B score: <input id="scoreB" type="number" value="0"> </label><br>
+<label> A on a colour: <input id="aOnCol" type="checkbox"> </label><br>
+<label> B on a colour: <input id="bOnCol" type="checkbox"> </label><br>
+<label> Reds on table: <input id="reds" type="number" value="15"> </label><br>
+Available colours:<br>
+<label> <input id="yl" type="checkbox" checked> yellow </label>
+<label> <input id="gr" type="checkbox" checked> green </label>
+<label> <input id="br" type="checkbox" checked> brown </label>
+<label> <input id="bl" type="checkbox" checked> blue </label>
+<label> <input id="pk" type="checkbox" checked> pink </label>
+<label> <input id="bk" type="checkbox" checked> black </label>
 
 <div id="svg-area"></div>
 
 <script>
 function updateSVG() {
+    // drawing parameters
+    const barWidth = 300;
+    const scoreStretch = barWidth/147;
+    const headerWidth = 60;
+    const padWidth = 20;
+    const padHeight = padWidth;
+    const barHeight = 30;
+    const availHeight = 5
+    const availGap = (barHeight - availHeight) / 2;
+    const barGap = 5;
+    const viewBoxWidth = padWidth + headerWidth + barWidth + padWidth;
+    const viewBoxHeight = padHeight + barHeight + barGap + barHeight + padHeight;
+    // get input values
     const scoreA = Number(document.getElementById("scoreA").value);
     const scoreB = Number(document.getElementById("scoreB").value);
     const reds = Number(document.getElementById("reds").value);
@@ -72,21 +53,28 @@ function updateSVG() {
     const pk = document.getElementById("pk").checked;
     const bk = document.getElementById("bk").checked;
     const availableScore = 8*reds + 2*yl + 3*gr + 4*br + 5*bl + 6*pk + 7*bk;
+    const aOnCol = document.getElementById("aOnCol").checked;
+    const bOnCol = document.getElementById("bOnCol").checked;
+    const aAvail = 7*aOnCol;
+    const bAvail = 7*bOnCol;
 
-    let svg = "";
+    let svg = `
+        <svg width="${viewBoxWidth}" height="${viewBoxHeight}" viewBox="0 0 ${viewBoxWidth} ${viewBoxHeight}" xmlns="http://www.w3.org/2000/svg">
+            <rect x="${padWidth}" y="${padHeight}" width="${headerWidth}" height="${barHeight}" fill="#ddd" />
+            <text x="${padWidth + 10}" y="${padHeight + barHeight / 2 + 5}" font-size="16" fill="#000">A:${scoreA}</text>
+            <rect x="${padWidth + headerWidth}" y="${padHeight}" width="${barWidth}" height="${barHeight}" fill="#eee" />
+            ${Array.from({length: Math.floor(barWidth / (4 * scoreStretch))}, (_, i) => `<line x1="${padWidth + headerWidth + (i + 1) * 4 * scoreStretch}" y1="${padHeight}" x2="${padWidth + headerWidth + (i + 1) * 4 * scoreStretch}" y2="${padHeight + barHeight}" stroke="white" stroke-width="1" />`).join('')}
+            <rect x="${padWidth + headerWidth}" y="${padHeight}" width="${scoreA * scoreStretch}" height="${barHeight}" fill="steelblue" />
+            <rect x="${padWidth + headerWidth + scoreA * scoreStretch}" y="${padHeight}" width="${(availableScore + aAvail) * scoreStretch}" height="${barHeight}" fill="steelblue" opacity="0.5" />
 
-    if (useCircle)   {
-        const r = Math.max(5, a);            // avoid zero radius
-        svg = `
-        <svg width="147" height="50" viewBox="0 0 147 50">
-          <circle cx="${b/2}" cy="${b/2}" r="${r}" fill="steelblue" />
+            <rect x="${padWidth}" y="${padHeight + barHeight + barGap}" width="${headerWidth}" height="${barHeight}" fill="#ddd" />
+            <text x="${padWidth + 10}" y="${padHeight + barHeight + barGap + barHeight / 2 + 5}" font-size="16" fill="#000">B:${scoreB}</text>
+            <rect x="${padWidth + headerWidth}" y="${padHeight + barHeight + barGap}" width="${barWidth}" height="${barHeight}" fill="#eee" />
+            ${Array.from({length: Math.floor(barWidth / (4 * scoreStretch))}, (_, i) => `<line x1="${padWidth + headerWidth + (i + 1) * 4 * scoreStretch}" y1="${padHeight + barHeight + barGap}" x2="${padWidth + headerWidth + (i + 1) * 4 * scoreStretch}" y2="${padHeight + barHeight + barGap + barHeight}" stroke="white" stroke-width="1" />`).join('')}
+            <rect x="${padWidth + headerWidth}" y="${padHeight + barHeight + barGap}" width="${scoreB * scoreStretch}" height="${barHeight}" fill="steelblue" />
+            <rect x="${padWidth + headerWidth + scoreB * scoreStretch}" y="${padHeight + barHeight + barGap}" width="${(availableScore + bAvail) * scoreStretch}" height="${barHeight}" fill="steelblue" opacity="0.5" />
+
         </svg>`;
-    } else {
-        svg = `
-        <svg width="${a}" height="${b}">
-          <rect width="${a}" height="${b}" fill="tomato" />
-        </svg>`;
-    }
 
     document.getElementById("svg-area").innerHTML = svg;
 }
