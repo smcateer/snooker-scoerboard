@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Dynamic SVG Demo</title>
+<style>
+  body { font-family: sans-serif; padding: 20px; }
+  #svg-area { margin-top: 20px; }
+  input { margin: 5px 0; }
+</style>
+</head>
+<body>
+
+<h3>Snooker scoreboard</h3>
+
+<label>
+  Player A score:
+  <input id="scoreA" type="number" value="0">
+</label><br>
+
+<label>
+  Player B score:
+  <input id="scoreB" type="number" value="0">
+</label><br>
+
+<label>
+  Reds on table:
+  <input id="reds" type="number" value="15">
+</label><br>
+
+<label>
+  <input id="yl" type="checkbox" checked>
+  yellow
+</label>
+
+<label>
+  <input id="gr" type="checkbox" checked>
+  green
+</label>
+
+<label>
+  <input id="br" type="checkbox" checked>
+  brown
+</label>
+
+<label>
+  <input id="bl" type="checkbox" checked>
+  blue
+</label>
+
+<label>
+  <input id="pk" type="checkbox" checked>
+  pink
+</label>
+
+<label>
+  <input id="bk" type="checkbox" checked>
+  black
+</label>
+
+<div id="svg-area"></div>
+
+<script>
+function updateSVG() {
+    const scoreA = Number(document.getElementById("scoreA").value);
+    const scoreB = Number(document.getElementById("scoreB").value);
+    const reds = Number(document.getElementById("reds").value);
+    const yl = document.getElementById("yl").checked;
+    const gr = document.getElementById("gr").checked;
+    const br = document.getElementById("br").checked;
+    const bl = document.getElementById("bl").checked;
+    const pk = document.getElementById("pk").checked;
+    const bk = document.getElementById("bk").checked;
+    const availableScore = 8*reds + 2*yl + 3*gr + 4*br + 5*bl + 6*pk + 7*bk;
+
+    let svg = "";
+
+    if (useCircle)   {
+        const r = Math.max(5, a);            // avoid zero radius
+        svg = `
+        <svg width="147" height="50" viewBox="0 0 147 50">
+          <circle cx="${b/2}" cy="${b/2}" r="${r}" fill="steelblue" />
+        </svg>`;
+    } else {
+        svg = `
+        <svg width="${a}" height="${b}">
+          <rect width="${a}" height="${b}" fill="tomato" />
+        </svg>`;
+    }
+
+    document.getElementById("svg-area").innerHTML = svg;
+}
+
+document.querySelectorAll("input").forEach(el =>
+    el.addEventListener("input", updateSVG)
+);
+
+// Draw initial
+updateSVG();
+</script>
+
+</body>
+</html>
