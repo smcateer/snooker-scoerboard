@@ -7,42 +7,102 @@
     body { font-family: sans-serif; padding: 20px; }
     #svg-area { margin-top: 20px; }
     input { margin: 5px 0; }
+    button { margin: 3px; }
+    .controls { margin-top: 10px; }
+    .fouls { margin-top: 6px; }
 </style>
 </head>
 <body>
 
 <h3>Snooker scoreboard</h3>
-<!-- Input fields for scores and remaining balls -->
-<label> Player A score: <input id="scoreA" type="number" value="0"> </label><br>
-<label> Player B score: <input id="scoreB" type="number" value="0"> </label><br>
-<label> A on a colour: <input id="aOnCol" type="checkbox"> </label><br>
-<label> B on a colour: <input id="bOnCol" type="checkbox"> </label><br>
-<label> Reds on table: <input id="reds" type="number" value="15"> </label><br>
-Available colours:<br>
-<label> <input id="yl" type="checkbox" checked> yellow </label>
-<label> <input id="gr" type="checkbox" checked> green </label>
-<label> <input id="br" type="checkbox" checked> brown </label>
-<label> <input id="bl" type="checkbox" checked> blue </label>
-<label> <input id="pk" type="checkbox" checked> pink </label>
-<label> <input id="bk" type="checkbox" checked> black </label>
+
+
+
+<div class="controls">
+  <fieldset>
+    <legend>Player A events</legend>
+    <button id="a-red" title="A pots Red">🔴</button>
+
+    <!-- colour buttons (emoji only) -->
+    <button id="a-yl" title="A pots Yellow">🟡</button>
+    <button id="a-gr" title="A pots Green">🟢</button>
+    <button id="a-br" title="A pots Brown">🟤</button>
+    <button id="a-bl" title="A pots Blue">🔵</button>
+    <button id="a-pk" title="A pots Pink">🩷</button>
+    <button id="a-bk" title="A pots Black">⚫</button>
+
+    <button id="a-miss" title="A misses">❌</button>
+
+    <!-- fouls for A (award points to opponent B) -->
+    <div class="fouls" aria-label="A fouls">
+      Fouls:
+      <button id="a-foul-4" title="A fell 4">4</button>
+      <button id="a-foul-5" title="A fell 5">5</button>
+      <button id="a-foul-6" title="A fell 6">6</button>
+      <button id="a-foul-7" title="A fell 7">7</button>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Player B events</legend>
+    <button id="b-red" title="B pots Red">🔴</button>
+
+    <!-- colour buttons (emoji only) -->
+    <button id="b-yl" title="B pots Yellow">🟡</button>
+    <button id="b-gr" title="B pots Green">🟢</button>
+    <button id="b-br" title="B pots Brown">🟤</button>
+    <button id="b-bl" title="B pots Blue">🔵</button>
+    <button id="b-pk" title="B pots Pink">🩷</button>
+    <button id="b-bk" title="B pots Black">⚫</button>
+
+    <button id="b-miss" title="B misses">❌</button>
+
+    <!-- fouls for B (award points to opponent A) -->
+    <div class="fouls" aria-label="B fouls">
+        Fouls:
+      <button id="b-foul-4" title="B fell 4">4</button>
+      <button id="b-foul-5" title="B fell 5">5</button>
+      <button id="b-foul-6" title="B fell 6">6</button>
+      <button id="b-foul-7" title="B fell 7">7</button>
+    </div>
+  </fieldset>
+  <fieldset>
+    <legend>Game state</legend>
+    <!-- Scores (read-only now) -->
+    <label> Player A score: <input id="scoreA" type="number" value="0" style="width: 70px;" > </label>
+    <label> Player B score: <input id="scoreB" type="number" value="0" style="width: 70px;" > </label><br>
+
+    <label> Reds on table: <input id="reds" type="number" value="15" style="width: 50px;"> </label><br>
+
+    Available colours: 
+    <label> <input id="yl" type="checkbox" checked> yellow </label>
+    <label> <input id="gr" type="checkbox" checked> green </label>
+    <label> <input id="br" type="checkbox" checked> brown </label>
+    <label> <input id="bl" type="checkbox" checked> blue </label>
+    <label> <input id="pk" type="checkbox" checked> pink </label>
+    <label> <input id="bk" type="checkbox" checked> black </label>  <br>
+    <button id="reset">Reset frame</button>
+  </fieldset>
+</div>
 
 <div id="svg-area"></div>
 
 <script>
+let aOnCol = false;
+let bOnCol = false;
+
 function updateSVG() {
-    // drawing parameters
     const barWidth = 300;
     const scoreStretch = barWidth/147;
     const headerWidth = 60;
     const padWidth = 20;
     const padHeight = padWidth;
+    const padHeight2 = padWidth;
     const barHeight = 30;
-    const availHeight = 5
-    const availGap = (barHeight - availHeight) / 2;
     const barGap = 5;
     const viewBoxWidth = padWidth + headerWidth + barWidth + padWidth;
-    const viewBoxHeight = padHeight + barHeight + barGap + barHeight + padHeight;
-    // get input values
+    const viewBoxHeight = padHeight + barHeight + barGap + barHeight + padHeight2;
+
     const scoreA = Number(document.getElementById("scoreA").value);
     const scoreB = Number(document.getElementById("scoreB").value);
     const reds = Number(document.getElementById("reds").value);
@@ -52,36 +112,121 @@ function updateSVG() {
     const bl = document.getElementById("bl").checked;
     const pk = document.getElementById("pk").checked;
     const bk = document.getElementById("bk").checked;
-    const availableScore = 8*reds + 2*yl + 3*gr + 4*br + 5*bl + 6*pk + 7*bk;
-    const aOnCol = document.getElementById("aOnCol").checked;
-    const bOnCol = document.getElementById("bOnCol").checked;
+    const availableScore = 8*reds + (yl?2:0) + (gr?3:0) + (br?4:0) + (bl?5:0) + (pk?6:0) + (bk?7:0);
     const aAvail = 7*aOnCol;
     const bAvail = 7*bOnCol;
 
     let svg = `
         <svg width="${viewBoxWidth}" height="${viewBoxHeight}" viewBox="0 0 ${viewBoxWidth} ${viewBoxHeight}" xmlns="http://www.w3.org/2000/svg">
             <rect x="${padWidth}" y="${padHeight}" width="${headerWidth}" height="${barHeight}" fill="#ddd" />
-            <text x="${padWidth + 10}" y="${padHeight + barHeight / 2 + 5}" font-size="16" fill="#000">A:${scoreA}</text>
+            <text x="${padWidth + 10}" y="${padHeight + barHeight / 2 + 5}" font-size="16" fill="#000">A:${scoreA}${aOnCol ? '•' : ''}</text>
             <rect x="${padWidth + headerWidth}" y="${padHeight}" width="${barWidth}" height="${barHeight}" fill="#eee" />
             ${Array.from({length: Math.floor(barWidth / (4 * scoreStretch))}, (_, i) => `<line x1="${padWidth + headerWidth + (i + 1) * 4 * scoreStretch}" y1="${padHeight}" x2="${padWidth + headerWidth + (i + 1) * 4 * scoreStretch}" y2="${padHeight + barHeight}" stroke="white" stroke-width="1" />`).join('')}
-            <rect x="${padWidth + headerWidth}" y="${padHeight}" width="${scoreA * scoreStretch}" height="${barHeight}" fill="steelblue" />
-            <rect x="${padWidth + headerWidth + scoreA * scoreStretch}" y="${padHeight}" width="${(availableScore + aAvail) * scoreStretch}" height="${barHeight}" fill="steelblue" opacity="0.5" />
+            <rect x="${padWidth + headerWidth}" y="${padHeight}" width="${Math.max(0, Math.min(barWidth, scoreA * scoreStretch))}" height="${barHeight}" fill="steelblue" />
+            <rect x="${padWidth + headerWidth + Math.max(0, Math.min(barWidth, scoreA * scoreStretch))}" y="${padHeight}" width="${Math.max(0, Math.min(barWidth, (availableScore + aAvail) * scoreStretch))}" height="${barHeight}" fill="steelblue" opacity="0.5" />
 
             <rect x="${padWidth}" y="${padHeight + barHeight + barGap}" width="${headerWidth}" height="${barHeight}" fill="#ddd" />
-            <text x="${padWidth + 10}" y="${padHeight + barHeight + barGap + barHeight / 2 + 5}" font-size="16" fill="#000">B:${scoreB}</text>
+            <text x="${padWidth + 10}" y="${padHeight + barHeight + barGap + barHeight / 2 + 5}" font-size="16" fill="#000">B:${scoreB}${bOnCol ? '•' : ''}</text>
             <rect x="${padWidth + headerWidth}" y="${padHeight + barHeight + barGap}" width="${barWidth}" height="${barHeight}" fill="#eee" />
             ${Array.from({length: Math.floor(barWidth / (4 * scoreStretch))}, (_, i) => `<line x1="${padWidth + headerWidth + (i + 1) * 4 * scoreStretch}" y1="${padHeight + barHeight + barGap}" x2="${padWidth + headerWidth + (i + 1) * 4 * scoreStretch}" y2="${padHeight + barHeight + barGap + barHeight}" stroke="white" stroke-width="1" />`).join('')}
-            <rect x="${padWidth + headerWidth}" y="${padHeight + barHeight + barGap}" width="${scoreB * scoreStretch}" height="${barHeight}" fill="steelblue" />
-            <rect x="${padWidth + headerWidth + scoreB * scoreStretch}" y="${padHeight + barHeight + barGap}" width="${(availableScore + bAvail) * scoreStretch}" height="${barHeight}" fill="steelblue" opacity="0.5" />
+            <rect x="${padWidth + headerWidth}" y="${padHeight + barHeight + barGap}" width="${Math.max(0, Math.min(barWidth, scoreB * scoreStretch))}" height="${barHeight}" fill="steelblue" />
+            <rect x="${padWidth + headerWidth + Math.max(0, Math.min(barWidth, scoreB * scoreStretch))}" y="${padHeight + barHeight + barGap}" width="${Math.max(0, Math.min(barWidth, (availableScore + bAvail) * scoreStretch))}" height="${barHeight}" fill="steelblue" opacity="0.5" />
 
         </svg>`;
 
     document.getElementById("svg-area").innerHTML = svg;
 }
 
-document.querySelectorAll("input").forEach(el =>
-    el.addEventListener("input", updateSVG)
-);
+function setScore(elId, val) { document.getElementById(elId).value = val; }
+function addScore(elId, delta) { const el = document.getElementById(elId); el.value = Number(el.value) + delta; }
+
+// pot/red handlers
+document.getElementById("a-red").addEventListener("click", () => {
+  if (Number(document.getElementById("reds").value) <= 0) return;
+  addScore("scoreA", 1);
+  document.getElementById("reds").value = Math.max(0, Number(document.getElementById("reds").value) - 1);
+  aOnCol = true; bOnCol = false;
+  updateSVG();
+});
+document.getElementById("b-red").addEventListener("click", () => {
+  if (Number(document.getElementById("reds").value) <= 0) return;
+  addScore("scoreB", 1);
+  document.getElementById("reds").value = Math.max(0, Number(document.getElementById("reds").value) - 1);
+  bOnCol = true; aOnCol = false;
+  updateSVG();
+});
+
+function potColourFor(player, val) {
+  const colours = {2: 'yl', 3: 'gr', 4: 'br', 5: 'bl', 6: 'pk', 7: 'bk'};
+  const ck = colours[val];
+  const scoreId = player === 'A' ? 'scoreA' : 'scoreB';
+  const onCol = player === 'A' ? aOnCol : bOnCol;
+
+  if (onCol) {
+    addScore(scoreId, val);
+    if (player === 'A') aOnCol = false; else bOnCol = false;
+  } else {
+    if (document.getElementById(ck).checked) {
+      addScore(scoreId, val);
+      document.getElementById(ck).checked = false;
+    }
+  }
+  updateSVG();
+}
+
+// wire colour buttons for A
+document.getElementById("a-yl").addEventListener("click", () => potColourFor('A', 2));
+document.getElementById("a-gr").addEventListener("click", () => potColourFor('A', 3));
+document.getElementById("a-br").addEventListener("click", () => potColourFor('A', 4));
+document.getElementById("a-bl").addEventListener("click", () => potColourFor('A', 5));
+document.getElementById("a-pk").addEventListener("click", () => potColourFor('A', 6));
+document.getElementById("a-bk").addEventListener("click", () => potColourFor('A', 7));
+// wire colour buttons for B
+document.getElementById("b-yl").addEventListener("click", () => potColourFor('B', 2));
+document.getElementById("b-gr").addEventListener("click", () => potColourFor('B', 3));
+document.getElementById("b-br").addEventListener("click", () => potColourFor('B', 4));
+document.getElementById("b-bl").addEventListener("click", () => potColourFor('B', 5));
+document.getElementById("b-pk").addEventListener("click", () => potColourFor('B', 6));
+document.getElementById("b-bk").addEventListener("click", () => potColourFor('B', 7));
+
+document.getElementById("a-miss").addEventListener("click", () => { aOnCol = false; bOnCol = false; updateSVG(); });
+document.getElementById("b-miss").addEventListener("click", () => { aOnCol = false; bOnCol = false; updateSVG(); });
+
+// fouls: offender passed, points awarded to opponent
+function foulBy(offender, points) {
+  if (offender === 'A') addScore('scoreB', points);
+  else addScore('scoreA', points);
+  aOnCol = false; bOnCol = false;
+  updateSVG();
+}
+
+// wire A fouls
+document.getElementById("a-foul-4").addEventListener("click", () => foulBy('A', 4));
+document.getElementById("a-foul-5").addEventListener("click", () => foulBy('A', 5));
+document.getElementById("a-foul-6").addEventListener("click", () => foulBy('A', 6));
+document.getElementById("a-foul-7").addEventListener("click", () => foulBy('A', 7));
+
+// wire B fouls
+document.getElementById("b-foul-4").addEventListener("click", () => foulBy('B', 4));
+document.getElementById("b-foul-5").addEventListener("click", () => foulBy('B', 5));
+document.getElementById("b-foul-6").addEventListener("click", () => foulBy('B', 6));
+document.getElementById("b-foul-7").addEventListener("click", () => foulBy('B', 7));
+
+document.getElementById("reset").addEventListener("click", () => {
+  setScore("scoreA", 0);
+  setScore("scoreB", 0);
+  document.getElementById("reds").value = 15;
+  document.getElementById("yl").checked = true;
+  document.getElementById("gr").checked = true;
+  document.getElementById("br").checked = true;
+  document.getElementById("bl").checked = true;
+  document.getElementById("pk").checked = true;
+  document.getElementById("bk").checked = true;
+  aOnCol = false; bOnCol = false;
+  updateSVG();
+});
+
+document.querySelectorAll("input").forEach(el => el.addEventListener("input", updateSVG));
 
 // Draw initial
 updateSVG();
