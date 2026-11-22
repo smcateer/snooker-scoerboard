@@ -1,236 +1,648 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Snooker Scoreboard</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#080e12">
+<title>Snooker scoreboard</title>
 <style>
-    body { font-family: sans-serif; padding: 20px; }
-    #svg-area { margin-top: 20px; }
-    input { margin: 5px 0; }
-    button { margin: 3px; }
-    .controls { margin-top: 10px; }
-    .fouls { margin-top: 6px; }
+:root {
+  color-scheme:dark;
+  --bg:#080e12;
+  --surface:#111e25;
+  --edge:#2c4651;
+  --ink:#f4fafb;
+  --muted:#8faab3;
+  --a:#06dcc2;
+  --b:#ff725c;
+  --accent:#d5fa58;
+  --red:#e83e48;
+  --yellow:#f7d638;
+  --green:#48b66d;
+  --brown:#b3764c;
+  --blue:#3c94ea;
+  --pink:#f39cbe;
+  --blackball:#161a1c;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--bg)}
+body{font:15px/1.35 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink)}
+button,input,select{font:inherit}
+button{cursor:pointer;-webkit-tap-highlight-color:transparent}
+button:disabled{cursor:default;opacity:.3}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+[hidden]{display:none!important}
+.app{width:min(1320px,100%);height:100svh;min-height:0;margin:auto;padding:18px 24px 20px;display:flex;flex-direction:column;gap:16px}
+.topbar{flex:none;display:flex;justify-content:space-between;align-items:center;gap:16px;min-height:43px}
+h1{font-size:20px;line-height:1.1;letter-spacing:.15em;font-weight:850;text-transform:uppercase;margin:0}
+.tools{display:flex;align-items:center;gap:9px}
+.tool{border:1px solid #304b56;background:#15252c;color:#e2eff1;min-height:39px;padding:7px 14px;border-radius:10px;font-size:13px;font-weight:750}
+.tool:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.tool.icon{font-size:21px;min-width:41px;padding:2px 10px;line-height:1}
+.surface{background:radial-gradient(ellipse 80% 70% at 50% 35%,#182b35 0%,var(--surface) 76%);border:1px solid var(--edge);box-shadow:0 22px 90px #0003;border-radius:22px;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.hero{flex:1;min-height:135px;display:flex;align-items:center;justify-content:center;padding:12px 24px 0}
+.stage{width:100%;max-width:1160px;height:173px;display:flex;align-items:center;position:relative}
+.domain{margin:0 132px;flex:1;height:68px;position:relative;min-width:0;--bar-width:100%;--bar-half:50%}
+.track{width:var(--bar-width);height:64px;background:#000;border:1px solid #375560;border-radius:8px;overflow:hidden;left:50%;top:0;transform:translateX(-50%);position:absolute;transition:width .18s ease}
+.fill{position:absolute;top:0;bottom:0;transition:width .18s ease}
+.fill.a{left:0;background:var(--a);box-shadow:inset 0 2px 0 #ffffff40}
+.fill.b{right:0;background:var(--b);box-shadow:inset 0 2px 0 #ffffff40}
+/* Provisional points are 50/50 player-colour/black (3px/3px).
+   They occupy their own portion of the total frame budget and are available
+   only to the striker; the common unclaimed space stays black. */
+.hatch{position:absolute;top:0;bottom:0;transition:width .18s ease}
+.hatch.a{background:repeating-linear-gradient(-55deg,var(--a) 0 3px,#000 3px 6px)}
+.hatch.b{background:repeating-linear-gradient(-55deg,var(--b) 0 3px,#000 3px 6px)}
+.marker{position:absolute;left:50%;top:-16px;height:128px;border-left:2px solid var(--accent);z-index:2;filter:drop-shadow(0 0 3px #d5fa5860);pointer-events:none}
+.marker::after{content:"";position:absolute;bottom:5px;width:14px;height:16px;background:var(--accent);clip-path:polygon(0 50%,100% 0,100% 100%)}
+.marker.a::after{left:-22px}
+.marker.b::after{left:10px;transform:scaleX(-1)}
+.target-number{position:absolute;left:50%;top:-47px;transform:translateX(-50%);color:var(--accent);font-weight:800;font-size:16px;font-variant-numeric:tabular-nums;z-index:3}
+.nameplates{position:absolute;left:0;top:77px;width:100%;pointer-events:none;font-size:23px;font-weight:820;letter-spacing:-.02em}
+.player-name{position:absolute;max-width:43%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.player-name.a{left:clamp(0px,calc(50% - var(--bar-half)),calc(50% - 110px));text-align:left;padding-right:8px;color:var(--a)}
+.player-name.b{right:clamp(0px,calc(50% - var(--bar-half)),calc(50% - 110px));text-align:right;padding-left:8px;color:var(--b)}
+.score{position:absolute;top:50%;width:max-content;min-width:44px;white-space:nowrap;display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;font-variant-numeric:tabular-nums;transform:translateY(-50%);transition:left .18s ease,right .18s ease}
+/* Pin the whole score box OUTSIDE the current bar edge, not its centre.
+   It therefore stays clear of the bar even as digits grow from 9 to 100+. */
+.score.a{right:calc(50% + var(--bar-half) + 14px);color:var(--a)}
+.score.b{left:calc(50% + var(--bar-half) + 14px);color:var(--b)}
+.score .identity{display:none}
+.score strong{font-size:clamp(46px,5.5vw,76px);letter-spacing:-.07em;line-height:1;font-weight:760}
+@media(max-width:640px){.score.three-digit strong{font-size:clamp(27px,7.2vw,44px)}}
+.frame-complete{color:var(--accent);font-size:13px;font-weight:800;letter-spacing:.13em;text-align:center;margin:-6px 0 10px}
+.state{border-top:1px solid #263c46;min-height:66px;display:flex;align-items:center;justify-content:center;gap:28px;flex-wrap:wrap;padding:11px 18px}
+.state-item{display:inline-flex;align-items:center;gap:9px;font-size:14px;font-weight:700;color:#e5eff1;font-variant-numeric:tabular-nums}
+.state-item .muted{font-size:10px;letter-spacing:.13em;font-weight:800;color:var(--muted)}
+.state-item strong{font-size:18px;line-height:1;font-weight:800}
+.red-dot{height:17px;width:17px;border-radius:50%;background:var(--red);box-shadow:inset -4px -5px 7px #0006,inset 2px 2px 4px #fff5}
+.free-state{color:var(--accent)}
+.free-state .star{font-size:21px;line-height:1}
+.events{min-height:122px;border-top:1px solid #263c46;padding:18px 24px;display:flex;gap:20px;align-items:center;justify-content:space-between}
+.ball-row{min-width:0;display:flex;align-items:center;gap:12px;flex:1}
+.ball-button{width:72px;height:72px;border-radius:13px;background:#192b34;border:1px solid #34535e;display:flex;align-items:center;justify-content:center;flex:0 0 auto;transition:background .13s,border-color .13s,transform .13s}
+.ball-button:hover:not(:disabled){border-color:var(--accent);background:#28424d;transform:translateY(-2px)}
+.ball-dot{display:block;width:42px;height:42px;border-radius:50%;border:1px solid #ffffff49;box-shadow:inset 5px 5px 10px #ffffff55,inset -8px -9px 13px #0008,0 3px 8px #0005}
+.ball-button.red .ball-dot{background:var(--red)}
+.ball-button.yellow .ball-dot{background:var(--yellow)}
+.ball-button.green .ball-dot{background:var(--green)}
+.ball-button.brown .ball-dot{background:var(--brown)}
+.ball-button.blue .ball-dot{background:var(--blue)}
+.ball-button.pink .ball-dot{background:var(--pink)}
+.ball-button.black .ball-dot{background:var(--blackball);border-color:#6d848b;box-shadow:inset 4px 4px 12px #ffffff27,inset -9px -10px 16px #000b,0 0 0 1px #15232b}
+.ball-button.free .ball-dot{background:radial-gradient(circle at 30% 24%,#f8ffad,var(--accent) 70%);display:grid;place-items:center;border-color:#e4ffaf;box-shadow:0 0 0 2px #a3ca343b,inset -7px -8px 10px #28380788}
+.ball-button.free .ball-dot::before{content:"★";color:#111810;font-size:22px}
+.actions{display:flex;gap:10px;flex:none;align-items:center}
+.event-btn{min-width:112px;height:72px;border-radius:12px;font-size:17px;font-weight:790;border:1px solid #427c78;background:#173d3c;color:#e8fff8}
+.event-btn:hover:not(:disabled){background:#205d58;border-color:var(--a)}
+.event-btn.foul{background:#49272b;border-color:#905050;color:#fff1ec}
+.event-btn.foul:hover:not(:disabled){background:#683236;border-color:var(--b)}
+.mode-controls{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:10px;width:100%}
+.mode-btn{min-height:62px;border-radius:11px;border:1px solid #4a626b;background:#21333c;color:var(--ink);font-size:17px;font-weight:770;padding:0 24px;min-width:72px}
+.mode-btn:hover{border-color:var(--accent);color:var(--accent)}
+.mode-btn.cancel{color:var(--muted);background:transparent;min-width:54px;padding:0 13px}
+.mode-btn.free-choice{color:#e9ffad;border-color:#92b947;background:#344221}
+.mode-btn.penalty{border-color:#a26457;background:#442f33}
+.mode-btn.penalty:hover{border-color:var(--b);color:#fff}
+.mode-btn.primary{background:#255649;border-color:#438e72}
+.mode-label{color:var(--muted);font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;margin-right:8px}
+/* Nomination is a compact two-row choice; six coloured balls stay visible at 320px. */
+#foul-nomination{display:grid;grid-template-columns:1fr auto;gap:6px}
+#foul-nomination .mode-label{grid-column:1;grid-row:1;align-self:center}
+#foul-nomination-balls{grid-column:1/-1;grid-row:2;display:flex;gap:4px;justify-content:space-between;min-width:0}
+#foul-nomination .mode-btn.cancel{grid-column:2;grid-row:1;min-width:28px;min-height:29px;padding:0 8px}
+.marker.pending::after{display:none}
+
+/* Secondary tools live in an overlay, not on the scoring surface. */
+dialog{background:#13242c;color:var(--ink);border:1px solid #48727c;border-radius:17px;padding:23px;width:min(540px,calc(100vw - 30px));max-height:85svh;overflow:auto;box-shadow:0 25px 100px #000b}
+dialog::backdrop{background:#000c;backdrop-filter:blur(4px)}
+dialog h2{margin:0 0 18px;font-size:21px;line-height:1.1}
+.dialog-top{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:18px}
+.dialog-top h2{margin:0}
+.close{background:transparent;border:1px solid #405b65;color:var(--muted);width:36px;height:36px;border-radius:9px;font-size:22px}
+.dialog-options{display:flex;gap:10px}
+.dialog-options button{flex:1;min-height:72px;background:#1c3f44;border:1px solid #4b7075;color:#e9f4f3;border-radius:11px;font-weight:800;font-size:18px}
+.dialog-options button:hover{border-color:var(--accent)}
+.editor{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.new-names{margin:0 0 18px}
+.new-names label:first-child{color:var(--a)}
+.new-names label:last-child{color:var(--b)}
+.editor label{font-size:12px;color:var(--muted);font-weight:700;display:flex;flex-direction:column;gap:5px}
+.editor input,.editor select{min-height:40px;width:100%;padding:7px 9px;background:#0a181d;border:1px solid #45636b;border-radius:8px;color:var(--ink)}
+.editor-heading{color:var(--muted);font-size:11px;letter-spacing:.12em;font-weight:800;text-transform:uppercase;margin:22px 0 10px}
+.colour-flags{display:flex;flex-wrap:wrap;gap:11px}
+.colour-flags label{display:flex;align-items:center;gap:5px;font-size:12px;color:#d1e4e7}
+.colour-flags input{accent-color:var(--accent)}
+#history{color:var(--muted);font-size:12px;margin:0;padding-left:23px;max-height:120px;overflow:auto}
+#history li{padding:2px 0}
+.note{margin:17px 0 0;font-size:12px;color:var(--muted);line-height:1.45}
+@media(max-width:900px){
+  .app{padding:14px;gap:12px}
+  .hero{padding:6px 12px 0}
+  .domain{margin-inline:95px}
+  .score{min-width:38px}
+  .score strong{font-size:clamp(43px,6vw,65px)}
+  .events{padding:16px}
+  .ball-row{gap:8px}
+  .ball-button{width:62px;height:66px}
+  .ball-dot{width:38px;height:38px}
+  .event-btn{min-width:96px;height:66px}
+}
+@media(max-width:640px){
+  .app{padding:10px;gap:10px}
+  .topbar{min-height:40px}
+  h1{font-size:17px;letter-spacing:.11em}
+  .tool{min-height:36px;padding:6px 9px;font-size:12px}
+  .tool.icon{min-width:36px}
+  .tools{gap:6px}
+  .surface{border-radius:16px}
+  .hero{min-height:106px;padding:0 10px}
+  .stage{height:128px}
+  .domain{margin-inline:64px;height:52px}
+  .track{height:48px;border-radius:6px}
+  .target-number{top:-36px;font-size:13px}
+  .marker{height:102px;top:-11px}
+  .nameplates{top:57px;font-size:18px}
+  .player-name.a{left:clamp(0px,calc(50% - var(--bar-half)),calc(50% - 48px))}
+  .player-name.b{right:clamp(0px,calc(50% - var(--bar-half)),calc(50% - 48px))}
+  .score{min-width:32px;gap:4px}
+  .score.a{right:calc(50% + var(--bar-half) + 7px)}
+  .score.b{left:calc(50% + var(--bar-half) + 7px)}
+  .score strong{font-size:clamp(35px,9vw,52px)}
+  .state{min-height:58px;gap:18px;padding:9px}
+  .state-item{font-size:12px;gap:6px}
+  .state-item strong{font-size:16px}
+  .events{min-height:180px;flex-direction:column;align-items:stretch;gap:12px;padding:14px}
+  .ball-row{flex:1;justify-content:center;gap:clamp(4px,1.7vw,12px);flex-wrap:nowrap}
+  .ball-button{width:clamp(42px,13vw,61px);height:clamp(49px,14vw,65px);border-radius:10px}
+  .ball-dot{width:clamp(28px,8.3vw,40px);height:clamp(28px,8.3vw,40px)}
+  .actions{justify-content:center}
+  .event-btn{flex:1;max-width:250px;min-width:0;height:51px}
+  .mode-controls{gap:7px}
+  .mode-btn{padding:0 12px;min-height:53px;min-width:58px;font-size:14px}
+  .mode-label{margin-right:2px}
+}
+@media(max-width:385px){
+  .tool{padding:5px 7px}
+  .domain{margin-inline:55px}
+  .nameplates{font-size:16px}
+  .score{min-width:30px}
+  .score strong{font-size:clamp(26px,8vw,33px)}
+  .score.a{right:calc(50% + var(--bar-half) + 4px)}
+  .score.b{left:calc(50% + var(--bar-half) + 4px)}
+  .events{padding:11px}
+}
+@media(max-height:720px) and (min-width:641px){
+  .app{padding-top:10px;padding-bottom:10px;gap:9px}
+  .topbar{min-height:34px}
+  .hero{min-height:108px}
+  .stage{height:125px}
+  .domain{height:54px}
+  .track{height:50px}
+  .target-number{top:-34px}
+  .marker{top:-11px;height:102px}
+  .nameplates{top:61px;font-size:19px}
+  .state{min-height:54px;padding:8px}
+  .events{min-height:99px;padding:12px 18px}
+  .ball-button{height:61px;width:64px}
+  .ball-dot{width:38px;height:38px}
+  .event-btn{height:61px}
+}
+@media(max-height:720px) and (max-width:640px){
+  .app{padding:7px;gap:7px}
+  .hero{min-height:85px}
+  .stage{height:103px}
+  .state{min-height:45px;padding:6px}
+  .events{min-height:154px;gap:9px;padding:10px}
+  .event-btn{height:47px}
+}
+@media(prefers-reduced-motion:reduce){.track,.fill,.hatch,.score,.ball-button{transition:none}}
 </style>
 </head>
 <body>
-
-<h3>Snooker scoreboard</h3>
-
-
-
-<div class="controls">
-  <fieldset>
-    <legend>Player A events</legend>
-    <button id="a-red" title="A pots Red">🔴</button>
-
-    <!-- colour buttons (emoji only) -->
-    <button id="a-yl" title="A pots Yellow">🟡</button>
-    <button id="a-gr" title="A pots Green">🟢</button>
-    <button id="a-br" title="A pots Brown">🟤</button>
-    <button id="a-bl" title="A pots Blue">🔵</button>
-    <button id="a-pk" title="A pots Pink">🩷</button>
-    <button id="a-bk" title="A pots Black">⚫</button>
-
-    <button id="a-miss" title="A misses">❌</button>
-
-    <!-- fouls for A (award points to opponent B) -->
-    <div class="fouls" aria-label="A fouls">
-      Fouls:
-      <button id="a-foul-4" title="A fell 4">4</button>
-      <button id="a-foul-5" title="A fell 5">5</button>
-      <button id="a-foul-6" title="A fell 6">6</button>
-      <button id="a-foul-7" title="A fell 7">7</button>
+<div class="app">
+  <header class="topbar">
+    <h1>Snooker scoreboard</h1>
+    <nav class="tools" aria-label="Frame tools">
+      <button type="button" class="tool" id="undo" title="Undo last action" disabled>↶ Undo</button>
+      <button type="button" class="tool" id="reset">New frame</button>
+      <button type="button" class="tool icon" id="settings" aria-label="Corrections and history" title="Corrections and history">⋯</button>
+    </nav>
+  </header>
+  <main class="surface">
+    <div class="hero">
+      <div class="stage" role="img" aria-label="Snooker frame scores and remaining points" id="scoregraphic">
+        <div class="domain" id="domain">
+          <div class="target-number" id="target-number">74</div>
+          <div class="track" id="track">
+            <div class="fill a" id="fill-a"></div>
+            <div class="fill b" id="fill-b"></div>
+            <div class="hatch a" id="hatch-a" hidden></div>
+            <div class="hatch b" id="hatch-b" hidden></div>
+          </div>
+          <div class="marker a" id="marker" title="Points needed to put the other player in snookers-required territory"></div>
+          <div class="score a active" id="score-panel-a">
+            <span class="identity">A</span><strong id="score-a">0</strong>
+          </div>
+          <div class="score b" id="score-panel-b">
+            <span class="identity">B</span><strong id="score-b">0</strong>
+          </div>
+          <div class="nameplates" aria-hidden="true">
+            <div class="player-name a" id="name-a">Player A</div>
+            <div class="player-name b" id="name-b">Player B</div>
+          </div>
+        </div>
+      </div>
     </div>
-  </fieldset>
-
-  <fieldset>
-    <legend>Player B events</legend>
-    <button id="b-red" title="B pots Red">🔴</button>
-
-    <!-- colour buttons (emoji only) -->
-    <button id="b-yl" title="B pots Yellow">🟡</button>
-    <button id="b-gr" title="B pots Green">🟢</button>
-    <button id="b-br" title="B pots Brown">🟤</button>
-    <button id="b-bl" title="B pots Blue">🔵</button>
-    <button id="b-pk" title="B pots Pink">🩷</button>
-    <button id="b-bk" title="B pots Black">⚫</button>
-
-    <button id="b-miss" title="B misses">❌</button>
-
-    <!-- fouls for B (award points to opponent A) -->
-    <div class="fouls" aria-label="B fouls">
-        Fouls:
-      <button id="b-foul-4" title="B fell 4">4</button>
-      <button id="b-foul-5" title="B fell 5">5</button>
-      <button id="b-foul-6" title="B fell 6">6</button>
-      <button id="b-foul-7" title="B fell 7">7</button>
+    <p class="frame-complete" id="finished" hidden>FRAME COMPLETE</p>
+    <div class="state" aria-label="Frame state">
+      <div class="state-item" id="break-container"><span class="muted">BREAK</span><strong id="break">0</strong></div>
+      <div class="state-item" id="reds-container"><span class="red-dot" aria-hidden="true"></span><span aria-hidden="true">×</span><strong id="reds">15</strong></div>
+      <div class="state-item free-state" id="free-container" hidden><span class="star" aria-hidden="true">★</span>FREE BALL</div>
     </div>
-  </fieldset>
-  <fieldset>
-    <legend>Game state</legend>
-    <!-- Scores (read-only now) -->
-    <label> Player A score: <input id="scoreA" type="number" value="0" style="width: 70px;" > </label>
-    <label> Player B score: <input id="scoreB" type="number" value="0" style="width: 70px;" > </label><br>
-
-    <label> Reds on table: <input id="reds" type="number" value="15" style="width: 50px;"> </label><br>
-
-    Available colours: 
-    <label> <input id="yl" type="checkbox" checked> yellow </label>
-    <label> <input id="gr" type="checkbox" checked> green </label>
-    <label> <input id="br" type="checkbox" checked> brown </label>
-    <label> <input id="bl" type="checkbox" checked> blue </label>
-    <label> <input id="pk" type="checkbox" checked> pink </label>
-    <label> <input id="bk" type="checkbox" checked> black </label>  <br>
-    <button id="reset">Reset frame</button>
-  </fieldset>
+    <div class="events" id="events" aria-label="Frame actions">
+      <div class="ball-row" id="balls" role="group" aria-label="Record potted ball"></div>
+      <div class="actions" id="actions">
+        <button class="event-btn" type="button" id="miss">Miss</button>
+        <button class="event-btn foul" type="button" id="foul">Foul</button>
+      </div>
+      <div class="mode-controls" id="foul-nomination" hidden>
+        <span class="mode-label">BALL ON</span>
+        <div class="ball-row" id="foul-nomination-balls" role="group" aria-label="Nominated colour"></div>
+        <button class="mode-btn cancel" id="cancel-nomination" type="button" aria-label="Cancel foul">×</button>
+      </div>
+      <div class="mode-controls" id="foul-choice" hidden>
+        <span class="mode-label">FOUL</span>
+        <button class="mode-btn penalty" data-penalty="4" type="button">4</button>
+        <button class="mode-btn penalty" data-penalty="5" type="button">5</button>
+        <button class="mode-btn penalty" data-penalty="6" type="button">6</button>
+        <button class="mode-btn penalty" data-penalty="7" type="button">7</button>
+        <button class="mode-btn cancel" id="cancel-foul" type="button" aria-label="Cancel foul selection">×</button>
+      </div>
+      <div class="mode-controls" id="respot-choice" hidden>
+        <span class="mode-label">RE-SPOTTED BLACK · FIRST SHOT</span>
+        <button class="mode-btn primary" type="button" data-respot="0">Player A</button>
+        <button class="mode-btn primary" type="button" data-respot="1">Player B</button>
+      </div>
+      <div class="mode-controls" id="after-foul" hidden>
+        <button class="mode-btn primary" id="continue" type="button">Continue</button>
+        <button class="mode-btn free-choice" id="call-free" type="button">★ Free ball</button>
+        <button class="mode-btn" id="play-again" type="button">Play again</button>
+      </div>
+    </div>
+  </main>
 </div>
-
-<div id="svg-area"></div>
-
+<dialog id="new-dialog" aria-labelledby="new-title">
+  <div class="dialog-top"><h2 id="new-title">New frame</h2><button type="button" class="close" data-close="new-dialog" aria-label="Cancel">×</button></div>
+  <div class="editor new-names">
+    <label>Player A<input id="new-name-a" type="text" maxlength="24" autocomplete="off" spellcheck="false"></label>
+    <label>Player B<input id="new-name-b" type="text" maxlength="24" autocomplete="off" spellcheck="false"></label>
+  </div>
+  <div class="dialog-options"><button type="button" data-start="0">Player A starts</button><button type="button" data-start="1">Player B starts</button></div>
+</dialog>
+<dialog id="edit-dialog" aria-labelledby="edit-title">
+  <div class="dialog-top"><h2 id="edit-title">Corrections &amp; history</h2><button type="button" class="close" data-close="edit-dialog" aria-label="Close">×</button></div>
+  <div class="editor">
+    <label>Player A name<input id="edit-name-a" type="text" maxlength="24"></label>
+    <label>Player B name<input id="edit-name-b" type="text" maxlength="24"></label>
+    <label>Player A score<input id="edit-a" type="number" min="0" max="999" inputmode="numeric"></label>
+    <label>Player B score<input id="edit-b" type="number" min="0" max="999" inputmode="numeric"></label>
+    <label>Reds on table<input id="edit-reds" type="number" min="0" max="15" inputmode="numeric"></label>
+    <label>At the table<select id="edit-striker"><option value="0">A</option><option value="1">B</option></select></label>
+    <label>Ball on<select id="edit-phase"><option value="reds">Red</option><option value="choice">Colour after red</option><option value="clearance">Final colours</option><option value="respotted">Re-spotted black</option></select></label>
+    <label>Current break<input id="edit-break" type="number" min="0" max="999" inputmode="numeric"></label>
+  </div>
+  <div class="editor-heading">Colours still on the table</div>
+  <div class="colour-flags" id="colour-flags"></div>
+  <div class="editor-heading">Recent events</div>
+  <ol id="history"></ol>
+  <p class="note">Ordinary scoring only. Foul-and-a-miss restorations, multiple-ball pots and re-spotted black are not modelled. State is stored locally in this browser.</p>
+</dialog>
 <script>
-let aOnCol = false;
-let bOnCol = false;
-
-function updateSVG() {
-    const barWidth = 300;
-    const scoreStretch = barWidth/147;
-    const headerWidth = 60;
-    const padWidth = 20;
-    const padHeight = padWidth;
-    const padHeight2 = padWidth;
-    const barHeight = 30;
-    const barGap = 5;
-    const viewBoxWidth = padWidth + headerWidth + barWidth + padWidth;
-    const viewBoxHeight = padHeight + barHeight + barGap + barHeight + padHeight2;
-
-    const scoreA = Number(document.getElementById("scoreA").value);
-    const scoreB = Number(document.getElementById("scoreB").value);
-    const reds = Number(document.getElementById("reds").value);
-    const yl = document.getElementById("yl").checked;
-    const gr = document.getElementById("gr").checked;
-    const br = document.getElementById("br").checked;
-    const bl = document.getElementById("bl").checked;
-    const pk = document.getElementById("pk").checked;
-    const bk = document.getElementById("bk").checked;
-    const availableScore = 8*reds + (yl?2:0) + (gr?3:0) + (br?4:0) + (bl?5:0) + (pk?6:0) + (bk?7:0);
-    const aAvail = 7*aOnCol;
-    const bAvail = 7*bOnCol;
-
-    let svg = `
-        <svg width="${viewBoxWidth}" height="${viewBoxHeight}" viewBox="0 0 ${viewBoxWidth} ${viewBoxHeight}" xmlns="http://www.w3.org/2000/svg">
-            <rect x="${padWidth}" y="${padHeight}" width="${headerWidth}" height="${barHeight}" fill="#ddd" />
-            <text x="${padWidth + 10}" y="${padHeight + barHeight / 2 + 5}" font-size="16" fill="#000">A:${scoreA}${aOnCol ? '•' : ''}</text>
-            <rect x="${padWidth + headerWidth}" y="${padHeight}" width="${barWidth}" height="${barHeight}" fill="#eee" />
-            ${Array.from({length: Math.floor(barWidth / (4 * scoreStretch))}, (_, i) => `<line x1="${padWidth + headerWidth + (i + 1) * 4 * scoreStretch}" y1="${padHeight}" x2="${padWidth + headerWidth + (i + 1) * 4 * scoreStretch}" y2="${padHeight + barHeight}" stroke="white" stroke-width="1" />`).join('')}
-            <rect x="${padWidth + headerWidth}" y="${padHeight}" width="${Math.max(0, Math.min(barWidth, scoreA * scoreStretch))}" height="${barHeight}" fill="steelblue" />
-            <rect x="${padWidth + headerWidth + Math.max(0, Math.min(barWidth, scoreA * scoreStretch))}" y="${padHeight}" width="${Math.max(0, Math.min(barWidth, (availableScore + aAvail) * scoreStretch))}" height="${barHeight}" fill="steelblue" opacity="0.5" />
-
-            <rect x="${padWidth}" y="${padHeight + barHeight + barGap}" width="${headerWidth}" height="${barHeight}" fill="#ddd" />
-            <text x="${padWidth + 10}" y="${padHeight + barHeight + barGap + barHeight / 2 + 5}" font-size="16" fill="#000">B:${scoreB}${bOnCol ? '•' : ''}</text>
-            <rect x="${padWidth + headerWidth}" y="${padHeight + barHeight + barGap}" width="${barWidth}" height="${barHeight}" fill="#eee" />
-            ${Array.from({length: Math.floor(barWidth / (4 * scoreStretch))}, (_, i) => `<line x1="${padWidth + headerWidth + (i + 1) * 4 * scoreStretch}" y1="${padHeight + barHeight + barGap}" x2="${padWidth + headerWidth + (i + 1) * 4 * scoreStretch}" y2="${padHeight + barHeight + barGap + barHeight}" stroke="white" stroke-width="1" />`).join('')}
-            <rect x="${padWidth + headerWidth}" y="${padHeight + barHeight + barGap}" width="${Math.max(0, Math.min(barWidth, scoreB * scoreStretch))}" height="${barHeight}" fill="steelblue" />
-            <rect x="${padWidth + headerWidth + Math.max(0, Math.min(barWidth, scoreB * scoreStretch))}" y="${padHeight + barHeight + barGap}" width="${Math.max(0, Math.min(barWidth, (availableScore + bAvail) * scoreStretch))}" height="${barHeight}" fill="steelblue" opacity="0.5" />
-
-        </svg>`;
-
-    document.getElementById("svg-area").innerHTML = svg;
-}
-
-function setScore(elId, val) { document.getElementById(elId).value = val; }
-function addScore(elId, delta) { const el = document.getElementById(elId); el.value = Number(el.value) + delta; }
-
-// pot/red handlers
-document.getElementById("a-red").addEventListener("click", () => {
-  if (Number(document.getElementById("reds").value) <= 0) return;
-  addScore("scoreA", 1);
-  document.getElementById("reds").value = Math.max(0, Number(document.getElementById("reds").value) - 1);
-  aOnCol = true; bOnCol = false;
-  updateSVG();
-});
-document.getElementById("b-red").addEventListener("click", () => {
-  if (Number(document.getElementById("reds").value) <= 0) return;
-  addScore("scoreB", 1);
-  document.getElementById("reds").value = Math.max(0, Number(document.getElementById("reds").value) - 1);
-  bOnCol = true; aOnCol = false;
-  updateSVG();
-});
-
-function potColourFor(player, val) {
-  const colours = {2: 'yl', 3: 'gr', 4: 'br', 5: 'bl', 6: 'pk', 7: 'bk'};
-  const ck = colours[val];
-  const scoreId = player === 'A' ? 'scoreA' : 'scoreB';
-  const onCol = player === 'A' ? aOnCol : bOnCol;
-
-  if (onCol) {
-    addScore(scoreId, val);
-    if (player === 'A') aOnCol = false; else bOnCol = false;
-  } else {
-    if (document.getElementById(ck).checked) {
-      addScore(scoreId, val);
-      document.getElementById(ck).checked = false;
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const colours = [
+    {name:'yellow',points:2},{name:'green',points:3},{name:'brown',points:4},
+    {name:'blue',points:5},{name:'pink',points:6},{name:'black',points:7}
+  ];
+  const nameOf = pts => colours.find(c=>c.points===pts)?.name || 'red';
+  const newState = (striker=0) => ({
+    names:['Player A','Player B'],scores:[0,0],striker,reds:15,phase:'reds',alive:[2,3,4,5,6,7],
+    freeBall:false,afterFoul:false,offender:null,break:0,done:false,respotPending:false,history:[]
+  });
+  const clone = o => JSON.parse(JSON.stringify(o));
+  const storageKey='snooker_ui_v6'; // retain old key so existing frames migrate
+  const stateVersion=2;
+  const validNumber = (x,min,max,fallback) => Number.isInteger(x)&&x>=min&&x<=max?x:fallback;
+  function migrate(raw){
+    const fresh=newState();
+    if(!raw||typeof raw!=='object'||!Array.isArray(raw.scores)||!Array.isArray(raw.alive)) return fresh;
+    const result={...fresh,...raw};
+    result.names=[0,1].map(i=>typeof raw.names?.[i]==='string'&&raw.names[i].trim()?raw.names[i].trim().slice(0,24):fresh.names[i]);
+    result.scores=[0,1].map(i=>validNumber(raw.scores[i],0,9999,0));
+    result.striker=validNumber(raw.striker,0,1,0);
+    result.reds=validNumber(raw.reds,0,15,15);
+    result.break=validNumber(raw.break,0,9999,0);
+    result.alive=[...new Set(raw.alive.filter(x=>[2,3,4,5,6,7].includes(x)))].sort((a,b)=>a-b);
+    if(!['reds','choice','clearance','respotted'].includes(raw.phase))result.phase='reds';
+    for(const key of ['freeBall','afterFoul','done','respotPending'])result[key]=raw[key]===true;
+    result.offender=raw.offender===0||raw.offender===1?raw.offender:null;
+    result.history=Array.isArray(raw.history)?raw.history.filter(x=>typeof x==='string').slice(0,20):[];
+    if(result.phase==='respotted'){
+      result.reds=0;result.alive=[7];result.done=false;
+      result.freeBall=false;result.afterFoul=false;result.offender=null;
+      // Old versions never had a respot-start selection.
+      result.respotPending=raw.respotPending===true;
+    }else result.respotPending=false;
+    if(result.done){result.freeBall=false;result.afterFoul=false;result.respotPending=false;}
+    return result;
+  }
+  let state = newState(), undoStack = [], mode='normal', nomination=null;
+  try {
+    const saved=JSON.parse(localStorage.getItem(storageKey)||'null');
+    if(saved?.state){
+      state=migrate(saved.state);
+      undoStack=Array.isArray(saved.undo)?saved.undo.map(migrate).slice(-100):[];
+    }
+  }catch{}
+  const save=()=>{try{localStorage.setItem(storageKey,JSON.stringify({version:stateVersion,state,undo:undoStack.slice(-100)}))}catch{}};
+  const maxColour=()=>state.alive.length?Math.max(...state.alive):0;
+  const sum=arr=>arr.reduce((a,b)=>a+b,0);
+  function common(){
+    if(state.done)return 0;
+    const clearance=sum(state.alive);
+    return (state.phase==='clearance'||state.phase==='respotted')?clearance:state.reds*(1+maxColour())+clearance;
+  }
+  // The striker-only bonus is a real component of today's maximum achievable
+  // frame total: after a red, one scored + seven provisional replaces eight
+  // previously shared points, so the bar and the displayed target don't jump.
+  // It is NOT added to the opponent's reachable total (see reachA/reachB).
+  function bonus(){
+    if(state.done)return 0;
+    if(state.freeBall){
+      if(state.phase==='reds')return 1+maxColour();
+      if(state.phase==='clearance')return state.alive[0]||0;
+    }
+    return state.phase==='choice'?maxColour():0;
+  }
+  function balance(){
+    const [a,b]=state.scores,remain=common(),edge=bonus();
+    return {a,b,remain,edge,total:a+b+remain+edge,
+      reachA:a+remain+(state.striker===0?edge:0),
+      reachB:b+remain+(state.striker===1?edge:0)};
+  }
+  function record(message,fn){
+    undoStack.push(clone(state));if(undoStack.length>100)undoStack.shift();
+    fn();state.history.unshift(message);state.history=state.history.slice(0,20);
+    mode='normal';nomination=null;save();render();
+  }
+  function endChoice(){if(state.phase==='choice')state.phase=state.reds>0?'reds':'clearance';}
+  function changeTurn(to){
+    endChoice();state.striker=to;state.break=0;state.freeBall=false;
+    state.afterFoul=false;state.offender=null;
+  }
+  const blackOnly=()=>state.phase==='respotted'||(state.phase==='clearance'&&state.alive.length===1&&state.alive[0]===7);
+  const minimumFoul=()=>state.phase==='respotted'?7:state.phase==='clearance'?Math.max(4,state.alive[0]||4):state.phase==='choice'?Math.max(4,nomination||4):4;
+  function resolveFinalBlack(){
+    state.freeBall=false;state.afterFoul=false;state.offender=null;
+    if(state.scores[0]===state.scores[1]){
+      // Rule 4: tie after final-black pot/foul starts a re-spotted black.
+      // The players decide who begins from in-hand; do not presume the striker.
+      state.phase='respotted';state.alive=[7];state.reds=0;state.break=0;
+      state.done=false;state.respotPending=true;
+    }else{
+      state.phase='clearance';state.alive=[];state.done=true;state.respotPending=false;
     }
   }
-  updateSVG();
-}
-
-// wire colour buttons for A
-document.getElementById("a-yl").addEventListener("click", () => potColourFor('A', 2));
-document.getElementById("a-gr").addEventListener("click", () => potColourFor('A', 3));
-document.getElementById("a-br").addEventListener("click", () => potColourFor('A', 4));
-document.getElementById("a-bl").addEventListener("click", () => potColourFor('A', 5));
-document.getElementById("a-pk").addEventListener("click", () => potColourFor('A', 6));
-document.getElementById("a-bk").addEventListener("click", () => potColourFor('A', 7));
-// wire colour buttons for B
-document.getElementById("b-yl").addEventListener("click", () => potColourFor('B', 2));
-document.getElementById("b-gr").addEventListener("click", () => potColourFor('B', 3));
-document.getElementById("b-br").addEventListener("click", () => potColourFor('B', 4));
-document.getElementById("b-bl").addEventListener("click", () => potColourFor('B', 5));
-document.getElementById("b-pk").addEventListener("click", () => potColourFor('B', 6));
-document.getElementById("b-bk").addEventListener("click", () => potColourFor('B', 7));
-
-document.getElementById("a-miss").addEventListener("click", () => { aOnCol = false; bOnCol = false; updateSVG(); });
-document.getElementById("b-miss").addEventListener("click", () => { aOnCol = false; bOnCol = false; updateSVG(); });
-
-// fouls: offender passed, points awarded to opponent
-function foulBy(offender, points) {
-  if (offender === 'A') addScore('scoreB', points);
-  else addScore('scoreA', points);
-  aOnCol = false; bOnCol = false;
-  updateSVG();
-}
-
-// wire A fouls
-document.getElementById("a-foul-4").addEventListener("click", () => foulBy('A', 4));
-document.getElementById("a-foul-5").addEventListener("click", () => foulBy('A', 5));
-document.getElementById("a-foul-6").addEventListener("click", () => foulBy('A', 6));
-document.getElementById("a-foul-7").addEventListener("click", () => foulBy('A', 7));
-
-// wire B fouls
-document.getElementById("b-foul-4").addEventListener("click", () => foulBy('B', 4));
-document.getElementById("b-foul-5").addEventListener("click", () => foulBy('B', 5));
-document.getElementById("b-foul-6").addEventListener("click", () => foulBy('B', 6));
-document.getElementById("b-foul-7").addEventListener("click", () => foulBy('B', 7));
-
-document.getElementById("reset").addEventListener("click", () => {
-  setScore("scoreA", 0);
-  setScore("scoreB", 0);
-  document.getElementById("reds").value = 15;
-  document.getElementById("yl").checked = true;
-  document.getElementById("gr").checked = true;
-  document.getElementById("br").checked = true;
-  document.getElementById("bl").checked = true;
-  document.getElementById("pk").checked = true;
-  document.getElementById("bk").checked = true;
-  aOnCol = false; bOnCol = false;
-  updateSVG();
-});
-
-document.querySelectorAll("input").forEach(el => el.addEventListener("input", updateSVG));
-
-// Draw initial
-updateSVG();
+  function pot(points){
+    if(state.done||mode!=='normal'||state.afterFoul||state.respotPending)return;
+    const who=state.striker;
+    if(points===1){
+      if(state.phase!=='reds'||state.reds<1)return;
+      record('A red to '+(who===0?'A':'B'),()=>{
+        state.scores[who]++;state.break++;state.reds--;state.phase='choice';
+        state.freeBall=false;
+      });return;
+    }
+    if(state.phase==='choice'&&state.alive.includes(points)){
+      record(nameOf(points)+' to '+(who===0?'A':'B'),()=>{
+        state.scores[who]+=points;state.break+=points;
+        state.phase=state.reds>0?'reds':'clearance';state.freeBall=false;
+      });return;
+    }
+    if((state.phase==='clearance'||state.phase==='respotted')&&state.alive[0]===points){
+      const finalBlack=blackOnly();
+      record(nameOf(points)+' to '+(who===0?'A':'B'),()=>{
+        state.scores[who]+=points;state.break+=points;
+        state.alive.shift();state.freeBall=false;
+        if(finalBlack)resolveFinalBlack();
+        else if(!state.alive.length)state.done=true;
+      });
+    }
+  }
+  function potFree(){
+    if(state.done||mode!=='normal'||!state.freeBall||state.afterFoul||state.respotPending||blackOnly())return;
+    const who=state.striker;
+    if(state.phase==='reds'){
+      record('Free ball as red to '+(who===0?'A':'B'),()=>{
+        state.scores[who]++;state.break++;state.phase='choice';state.freeBall=false;
+      });
+    }else if(state.phase==='clearance'&&state.alive.length){
+      const val=state.alive[0];
+      record('Free ball as '+nameOf(val)+' to '+(who===0?'A':'B'),()=>{
+        state.scores[who]+=val;state.break+=val;state.freeBall=false;
+      });
+    }
+  }
+  function miss(){
+    if(state.done||mode!=='normal'||state.afterFoul||state.respotPending)return;
+    const who=state.striker;
+    record((who===0?'A':'B')+' missed',()=>changeTurn(1-who));
+  }
+  function foul(points){
+    if(state.done||state.respotPending||mode!=='foul'||(state.phase==='choice'&&!nomination)||![4,5,6,7].includes(points)||points<minimumFoul())return;
+    const offender=state.striker, finalBlack=blackOnly();
+    record((offender===0?'A':'B')+' foul +'+points,()=>{
+      state.scores[1-offender]+=points;state.break=0;state.freeBall=false;
+      if(finalBlack){resolveFinalBlack();return;}
+      endChoice();state.striker=1-offender;
+      state.afterFoul=true;state.offender=offender;
+    });
+  }
+  function afterFoul(action){
+    if(!state.afterFoul||state.done||state.respotPending)return;
+    const offender=state.offender;
+    if(action==='again')record('Offender plays again',()=>changeTurn(offender));
+    else record(action==='free'?'Free ball called':'Continue after foul',()=>{
+      state.afterFoul=false;state.offender=null;state.freeBall=(action==='free');
+    });
+  }
+  function chooseNomination(points){
+    if(mode!=='nomination'||state.phase!=='choice'||!state.alive.includes(points))return;
+    nomination=points;mode='foul';render();
+  }
+  function chooseRespot(who){
+    if(state.phase!=='respotted'||!state.respotPending||![0,1].includes(who))return;
+    record('Re-spotted black: '+(state.names[who]||('Player '+(who?'B':'A')))+' starts',()=>{
+      state.striker=who;state.break=0;state.respotPending=false;
+    });
+  }
+  function addBall(name,points,isFree=false){
+    const btn=document.createElement('button');btn.type='button';
+    btn.className='ball-button '+(isFree?'free':name);
+    btn.setAttribute('aria-label',isFree?'Pot nominated free ball':'Pot '+name);
+    btn.title=isFree?'Pot nominated free ball':'Pot '+name+' ('+points+' points)';
+    const dot=document.createElement('span');dot.className='ball-dot';dot.setAttribute('aria-hidden','true');
+    btn.append(dot);btn.addEventListener('click',()=>isFree?potFree():pot(points));
+    return btn;
+  }
+  function render(){
+    const s=balance();
+    $('score-a').textContent=s.a;$('score-b').textContent=s.b;
+    $('score-panel-a').classList.toggle('three-digit',String(s.a).length>=3);
+    $('score-panel-b').classList.toggle('three-digit',String(s.b).length>=3);
+    $('name-a').textContent=state.names[0]||'Player A';$('name-b').textContent=state.names[1]||'Player B';
+    const target=Math.floor(s.total/2)+1;
+    $('target-number').textContent=target;
+    // Both ends contract symmetrically. A potted red replaces 8 common
+    // possible points with 1 scored + 7 conditional; the target stays fixed
+    // until a colour opportunity is resolved or lost.
+    const scale=Math.max(147,s.total,1),fraction=s.total/scale*100;
+    $('domain').style.setProperty('--bar-width',fraction+'%');
+    $('domain').style.setProperty('--bar-half',fraction/2+'%');
+    const share=Math.max(s.total,1);
+    const pctA=s.a/share*100, pctB=s.b/share*100;
+    const widthBonus=s.edge/share*100;
+    $('fill-a').style.width=pctA+'%';$('fill-b').style.width=pctB+'%';
+    $('hatch-a').hidden=!(s.edge&&state.striker===0);
+    $('hatch-b').hidden=!(s.edge&&state.striker===1);
+    $('hatch-a').style.left=pctA+'%';$('hatch-a').style.width=(state.striker===0?widthBonus:0)+'%';
+    $('hatch-b').style.right=pctB+'%';$('hatch-b').style.width=(state.striker===1?widthBonus:0)+'%';
+    $('score-panel-a').classList.toggle('active',state.striker===0&&!state.done);
+    $('score-panel-b').classList.toggle('active',state.striker===1&&!state.done);
+    $('marker').classList.toggle('a',state.striker===0);$('marker').classList.toggle('b',state.striker===1);
+    $('marker').classList.toggle('pending',state.respotPending);
+    const needA=s.a+s.remain+(state.striker===0?s.edge:0)<s.b;
+    const needB=s.b+s.remain+(state.striker===1?s.edge:0)<s.a;
+    $('scoregraphic').setAttribute('aria-label',
+      `${state.names[0]||'Player A'} ${s.a}, ${state.names[1]||'Player B'} ${s.b}, ${s.remain} common points left, `+
+      (s.edge?`${s.edge} provisional to ${(state.names[state.striker]|| (state.striker===0?'Player A':'Player B'))}, `:'')+
+      `centre threshold ${target}. `+
+      (needA?'A needs snookers. ':'')+(needB?'B needs snookers. ':''));
+    $('break').textContent=state.break;
+    $('reds').textContent=state.reds;$('reds-container').hidden=state.reds===0;
+    $('free-container').hidden=!state.freeBall;
+    $('finished').hidden=!state.done;
+    $('events').hidden=state.done;
+    $('finished').textContent=state.done?(state.names[s.a>s.b?0:1]||((s.a>s.b)?'Player A':'Player B')).toUpperCase()+' WINS':'';
+    const noEntry=state.done||mode!=='normal'||state.afterFoul||state.respotPending;
+    const buttons=[];
+    if(!noEntry){
+      if(state.phase==='reds'&&state.reds>0)buttons.push(addBall('red',1));
+      else if(state.phase==='choice')colours.filter(c=>state.alive.includes(c.points)).reverse().forEach(c=>buttons.push(addBall(c.name,c.points)));
+      else if((state.phase==='clearance'||state.phase==='respotted')&&state.alive.length){const ball=colours.find(c=>c.points===state.alive[0]);if(ball)buttons.push(addBall(ball.name,ball.points));}
+      if(state.freeBall&&state.phase!=='choice'&&!blackOnly())buttons.push(addBall('free ball',0,true));
+    }
+    $('balls').replaceChildren(...buttons);
+    $('balls').hidden=mode!=='normal'||state.afterFoul||state.done||state.respotPending;
+    $('actions').hidden=mode!=='normal'||state.afterFoul||state.done||state.respotPending;
+    $('foul-choice').hidden=mode!=='foul'||state.respotPending;
+    $('foul-nomination').hidden=mode!=='nomination'||state.respotPending;
+    if(mode==='nomination'){
+      $('foul-nomination-balls').replaceChildren(...colours.filter(c=>state.alive.includes(c.points)).reverse().map(c=>{
+        const btn=document.createElement('button');btn.type='button';btn.className='ball-button '+c.name;
+        btn.setAttribute('aria-label','Nominated '+c.name);btn.title='Nominated '+c.name;
+        const dot=document.createElement('span');dot.className='ball-dot';dot.setAttribute('aria-hidden','true');btn.append(dot);
+        btn.onclick=()=>chooseNomination(c.points);return btn;
+      }));
+    }
+    document.querySelectorAll('[data-penalty]').forEach(b=>{
+      const valid=Number(b.dataset.penalty)>=minimumFoul();
+      b.hidden=!valid;b.disabled=!valid;
+    });
+    $('after-foul').hidden=!state.afterFoul||state.done;
+    $('call-free').hidden=blackOnly();
+    $('respot-choice').hidden=!state.respotPending||state.done;
+    document.querySelectorAll('[data-respot]').forEach(b=>{
+      const i=Number(b.dataset.respot);b.textContent=state.names[i]||('Player '+(i?'B':'A'));
+    });
+    $('miss').disabled=state.done;$('foul').disabled=state.done;
+    $('undo').disabled=undoStack.length===0;
+    $('edit-name-a').value=state.names[0]||'Player A';$('edit-name-b').value=state.names[1]||'Player B';
+    $('edit-a').value=s.a;$('edit-b').value=s.b;$('edit-reds').value=state.reds;
+    $('edit-striker').value=String(state.striker);$('edit-phase').value=state.phase;$('edit-break').value=state.break;
+    document.querySelectorAll('[data-start]')[0].textContent=(state.names[0]||'Player A')+' starts';
+    document.querySelectorAll('[data-start]')[1].textContent=(state.names[1]||'Player B')+' starts';
+    $('history').replaceChildren(...state.history.map(item=>{const li=document.createElement('li');li.textContent=item;return li;}));
+    $('colour-flags').replaceChildren(...colours.map(c=>{
+      const label=document.createElement('label'),check=document.createElement('input');
+      check.type='checkbox';check.checked=state.alive.includes(c.points);
+      check.addEventListener('change',()=>record('Correct '+c.name+' availability',()=>{
+        if(check.checked&&!state.alive.includes(c.points))state.alive.push(c.points);
+        if(!check.checked)state.alive=state.alive.filter(x=>x!==c.points);
+        state.alive.sort((a,b)=>a-b);
+        state.done=state.phase==='clearance'&&state.alive.length===0;
+      }));
+      label.append(check,document.createTextNode(c.name));return label;
+    }));
+  }
+  $('miss').addEventListener('click',miss);
+  $('foul').addEventListener('click',()=>{if(state.done||state.respotPending)return;nomination=null;mode=state.phase==='choice'?'nomination':'foul';render();});
+  $('cancel-foul').addEventListener('click',()=>{mode='normal';nomination=null;render();});
+  $('cancel-nomination').addEventListener('click',()=>{mode='normal';nomination=null;render();});
+  document.querySelectorAll('[data-penalty]').forEach(b=>b.addEventListener('click',()=>foul(Number(b.dataset.penalty))));
+  document.querySelectorAll('[data-respot]').forEach(b=>b.addEventListener('click',()=>chooseRespot(Number(b.dataset.respot))));
+  $('continue').addEventListener('click',()=>afterFoul('continue'));
+  $('call-free').addEventListener('click',()=>afterFoul('free'));
+  $('play-again').addEventListener('click',()=>afterFoul('again'));
+  $('undo').addEventListener('click',()=>{
+    if(!undoStack.length)return;
+    state=migrate(undoStack.pop());mode='normal';nomination=null;save();render();
+  });
+  const newFrameNames=()=>[
+    $('new-name-a').value.trim()||'Player A',
+    $('new-name-b').value.trim()||'Player B'
+  ];
+  function updateStartLabels(){
+    const names=newFrameNames();
+    document.querySelectorAll('[data-start]').forEach((button,i)=>{
+      button.textContent=names[i]+' starts';
+    });
+  }
+  $('reset').addEventListener('click',()=>{
+    $('new-name-a').value=state.names[0]||'Player A';
+    $('new-name-b').value=state.names[1]||'Player B';
+    updateStartLabels();
+    $('new-dialog').showModal();
+  });
+  ['new-name-a','new-name-b'].forEach(id=>$(id).addEventListener('input',updateStartLabels));
+  $('settings').addEventListener('click',()=>$('edit-dialog').showModal());
+  document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',() => $(b.dataset.close).close()));
+  document.querySelectorAll('[data-start]').forEach(b=>b.addEventListener('click',()=>{
+    const names=newFrameNames();
+    state=newState(Number(b.dataset.start));state.names=names;undoStack=[];mode='normal';nomination=null;save();
+    $('new-dialog').close();render();
+  }));
+  const editing=[['edit-a','score A',999,(v)=>{state.scores[0]=v;}],
+    ['edit-b','score B',999,(v)=>{state.scores[1]=v;}],
+    ['edit-reds','reds',15,(v)=>{state.reds=v;if(v>0&&state.phase==='clearance')state.phase='reds';if(v===0&&state.phase==='reds')state.phase='clearance';}],
+    ['edit-break','break',999,(v)=>{state.break=v;}]];
+  editing.forEach(([id,label,max,fn])=>$(id).addEventListener('change',e=>{
+    const v=Number(e.target.value);
+    if(!Number.isInteger(v)||v<0||v>max){render();return;}
+    record('Correct '+label+' → '+v,()=>{fn(v);if(state.phase==='clearance'&&!state.alive.length)state.done=true;else state.done=false;});
+  }));
+  $('edit-name-a').addEventListener('change',e=>record('Rename player A',()=>{state.names[0]=(e.target.value||'Player A').trim()||'Player A';}));
+  $('edit-name-b').addEventListener('change',e=>record('Rename player B',()=>{state.names[1]=(e.target.value||'Player B').trim()||'Player B';}));
+  $('edit-striker').addEventListener('change',e=>record('Correct player at table',()=>changeTurn(Number(e.target.value))));
+  $('edit-phase').addEventListener('change',e=>record('Correct ball on',()=>{
+    state.phase=e.target.value;state.respotPending=false;
+    if(state.phase==='respotted'){state.reds=0;state.alive=[7];state.done=false;state.freeBall=false;state.afterFoul=false;}
+    else if(state.phase==='clearance'&&!state.alive.length)state.done=true;else state.done=false;
+  }));
+  render();
+})();
 </script>
-
 </body>
 </html>

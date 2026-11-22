@@ -1,0 +1,7 @@
+# Python and local test output
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+test-results/
+.DS_Store
