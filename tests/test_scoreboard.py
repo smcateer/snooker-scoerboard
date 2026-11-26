@@ -21,7 +21,7 @@ hook = '''
   window.__test = {
     reset:()=>{state=newState();undoStack=[];mode='normal';render()},
     set:(patch)=>{state=Object.assign(newState(),clone(patch));mode='normal';render()},
-    get:()=>({state:clone(state),balance:balance(),mode,buttons:[...document.querySelectorAll('#balls button')].map(b=>b.className),target:String(Math.floor(balance().total/2)+1),win:{a:document.querySelector('#target-a').textContent,b:document.querySelector('#target-b').textContent,threshold:Number(document.querySelector('#marker').dataset.threshold),position:parseFloat(document.querySelector('#domain').style.getPropertyValue('--win-position')),markerX:document.querySelector('#marker').getBoundingClientRect().left,solidRight:document.querySelector('#fill-a').getBoundingClientRect().right,fadedRight:document.querySelector('#hatch-a').getBoundingClientRect().right,fadedWidth:document.querySelector('#hatch-a').getBoundingClientRect().width,trackWidth:document.querySelector('#track').getBoundingClientRect().width,opacity:getComputedStyle(document.querySelector('#hatch-a')).opacity}}),
+    get:()=>({state:clone(state),balance:balance(),mode,buttons:[...document.querySelectorAll('#balls button')].map(b=>b.className),target:String(Math.floor(balance().total/2)+1),win:{a:document.querySelector('#target-a').textContent,b:document.querySelector('#target-b').textContent,markerX:document.querySelector('#marker').getBoundingClientRect().left,domainCenter:(document.querySelector('#domain').getBoundingClientRect().left+document.querySelector('#domain').getBoundingClientRect().right)/2,numberCenter:(document.querySelector('#target-number').getBoundingClientRect().left+document.querySelector('#target-number').getBoundingClientRect().right)/2,provisionalCount:document.querySelectorAll('.hatch').length}}),
     oldUndo:()=>{const old=clone(state);delete old.names;undoStack.push(old);render()},
   };
   render();
@@ -642,116 +642,95 @@ async def main():
   check('103. Loaded re-spotted game finishes on next legal pot',
         (s['state']['scores'],s['state']['done']),([61,68],True),'persistence')
 
-  # Win line is the miss-scenario midpoint, not the opponent's raw maximum;
-  # both player gaps preserve half-point precision. The provisional segment
-  # always uses the full colour's face value, unlike the earlier half-width bug.
+  # Fixed midpoint is always physically at the centre; only the solid scores
+  # are plotted and the exact signed half-point gaps remain above the marker.
   await reset(page)
   s=await state(page)
-  check('104. Initial gaps both 73.5',
-        (s['win']['threshold'],s['win']['a'],s['win']['b'],s['win']['position']),
-        (73.5,'73.5','73.5',50),'win threshold')
+  check('104. Fresh frame has two half-point gaps',
+        (s['win']['a'],s['win']['b'],s['win']['provisionalCount']),
+        ('73.5','73.5',0),'midpoint')
   await clicks(page,'.ball-button.red')
   s=await state(page)
-  check('105. Pending black lowers threshold to 70 and preserves two gaps',
-        (s['win']['threshold'],s['win']['a'],s['win']['b']),
-        (70,'69','70'),'win threshold')
-  await page.wait_for_timeout(250)
-  s=await state(page)
-  check('106. Faded area full seven-point width and visible',
-        (round(s['win']['fadedWidth']/s['win']['trackWidth']*s['balance']['total'],1),float(s['win']['opacity'])),
-        (7.0,.42),'win threshold')
+  check('105. Red leaves the pending black unshaded',
+        (s['state']['scores'],s['balance']['edge'],s['win']['a'],s['win']['b'],s['win']['provisionalCount']),
+        ([1,0],7,'72.5','73.5',0),'midpoint')
   await clicks(page,'.ball-button.black')
   s=await state(page)
-  check('107. Potting black restores midpoint and half-point readouts',
-        (s['win']['threshold'],s['win']['a'],s['win']['b']),
-        (73.5,'65.5','73.5'),'win threshold')
+  check('106. Black scores eight total and keeps midpoint 73.5',
+        (s['state']['scores'],s['win']['a'],s['win']['b']),
+        ([8,0],'65.5','73.5'),'midpoint')
   await reset(page,reds=0,phase='clearance',scores=[40,27])
   s=await state(page)
-  check('108. Ordinary clearance gaps differ for two players',
-        (s['win']['threshold'],s['win']['a'],s['win']['b']),
-        (47,'7','20'),'win threshold')
+  check('107. Clearance gaps from exact midpoint',
+        (s['win']['a'],s['win']['b']),('7','20'),'midpoint')
   await reset(page,reds=0,phase='clearance',scores=[60,33])
   s=await state(page)
-  check('109. Exactly at threshold displays zero',
-        (s['win']['threshold'],s['win']['a'],s['win']['b']),
-        (60,'0','27'),'win threshold')
+  check('108. Exactly at midpoint displays zero',
+        (s['win']['a'],s['win']['b']),('0','27'),'midpoint')
   await reset(page,reds=0,phase='clearance',scores=[65,28])
   s=await state(page)
-  check('110. Passing threshold shows signed surplus for Ronnie',
-        (s['win']['a'],s['win']['b']),
-        ('+5','32'),'win threshold')
+  check('109. Signed surplus at midpoint',
+        (s['win']['a'],s['win']['b']),('+5','32'),'midpoint')
   await reset(page,reds=0,phase='clearance',scores=[28,65],striker=1)
   s=await state(page)
-  check('111. Mirrored right-hand striker retains separate gaps',
-        (s['win']['a'],s['win']['b']),
-        ('32','+5'),'win threshold')
+  check('110. Right player shares same fixed threshold',
+        (s['win']['a'],s['win']['b']),('32','+5'),'midpoint')
   await reset(page,reds=5,phase='reds',scores=[46,19],striker=0)
   await clicks(page,'.ball-button.red')
   s=await state(page)
-  check('112. Position 47–19 displays half-point gap for both',
-        (s['win']['threshold'],s['win']['a'],s['win']['b']),
-        (62.5,'15.5','43.5'),'win threshold')
+  check('111. Pending colour keeps the true total midpoint',
+        (s['state']['scores'],s['balance']['edge'],s['win']['a'],s['win']['b']),
+        ([47,19],7,'19','47'),'midpoint')
   await reset(page,reds=5,phase='reds',scores=[66,19],striker=0)
   s=await state(page)
-  check('113. Before red midpoint with no provisional colour',
-        (s['balance']['remain'],s['win']['threshold']),
-        (67,76),'win threshold')
+  check('112. Before red: both gaps',
+        (s['win']['a'],s['win']['b']),('10','57'),'midpoint')
   await clicks(page,'.ball-button.red')
   s=await state(page)
-  check('114. Potting red shifts line immediately and creates faded seven',
-        (s['state']['scores'],s['balance']['edge'],s['win']['threshold']),
-        ([67,19],7,72.5),'win threshold')
-  check('115. Red immediately shifts both gap readouts',
-        (s['win']['a'],s['win']['b']),
-        ('5.5','53.5'),'win threshold')
+  check('113. After red: line remains centred, pending still unshaded',
+        (s['win']['a'],s['win']['b'],s['win']['provisionalCount']),
+        ('9','57',0),'midpoint')
   await reset(page,reds=5,phase='reds',scores=[72,19],striker=0)
   await clicks(page,'.ball-button.red')
-  await page.wait_for_timeout(250)
   s=await state(page)
-  check('116. Faded black crosses line but solid has not',
-        (s['win']['threshold'],s['win']['a'],s['win']['solidRight']<s['win']['markerX']<s['win']['fadedRight']),
-        (75.5,'2.5',True),'win threshold')
+  check('114. Gap labels keep half points where appropriate',
+        (s['win']['a'],s['win']['b']),('6','60'),'midpoint')
   await clicks(page,'.ball-button.black')
   s=await state(page)
-  check('117. Potting black solidly passes the threshold',
-        (s['state']['scores'][0],s['win']['threshold'],s['win']['a']),
-        (80,79,'+1'),'win threshold')
+  check('115. After pot gap is based on score alone',
+        (s['state']['scores'][0],s['win']['a']), (80,'+1'),'midpoint')
   await reset(page,reds=5,phase='reds',scores=[72,19],striker=0)
   await clicks(page,'.ball-button.red','#miss')
   s=await state(page)
-  check('118. Miss removes pending opportunity and retains half-point target',
-        (s['state']['scores'],s['balance']['edge'],s['win']['threshold']),
-        ([73,19],0,75.5),'win threshold')
-  await reset(page,reds=5,phase='reds',scores=[79,19],striker=0)
-  await clicks(page,'.ball-button.red')
-  await page.wait_for_timeout(250)
-  s=await state(page)
-  check('119. Solid Ronnie score already passes threshold',
-        (s['state']['scores'][0],s['win']['threshold'],s['win']['a'],s['win']['solidRight']>s['win']['markerX']),
-        (80,79,'+1',True),'win threshold')
+  check('116. Miss changes maximum total but never centre position',
+        (s['state']['scores'],s['win']['a'],s['win']['b']),
+        ([73,19],'2.5','56.5'),'midpoint')
   await reset(page,reds=5,phase='reds',scores=[19,72],striker=1)
   await clicks(page,'.ball-button.red')
-  await page.wait_for_timeout(250)
   s=await state(page)
-  pos=await page.evaluate("""() => ({solid:document.querySelector('#fill-b').getBoundingClientRect().left,fade:document.querySelector('#hatch-b').getBoundingClientRect().left,marker:document.querySelector('#marker').getBoundingClientRect().left})""")
-  check('120. Right-hand faded area crosses mirrored line',
-        (s['win']['threshold'],s['win']['b'],pos['fade']<pos['marker']<pos['solid']),
-        (75.5,'2.5',True),'win threshold')
+  check('117. Mirrored striker still shows two independent gaps',
+        (s['win']['a'],s['win']['b']),('60','6'),'midpoint')
   await reset(page,reds=0,phase='clearance',scores=[29,0],alive=[2,3,4,5,6,7],striker=1)
   s=await state(page)
-  check('121. 29–0 screenshot: separate gap readouts',
-        (s['win']['a'],s['win']['b'],s['win']['position']),
-        ('+1','28',50),'win threshold')
+  check('118. 29-0 screenshot both midpoint gaps',
+        (s['win']['a'],s['win']['b']),('+1','28'),'midpoint')
   await reset(page,reds=5,phase='reds',scores=[30,8],striker=0)
   s=await state(page)
-  check('122. 30–8 screenshot: two gaps near centred line',
-        (s['win']['a'],s['win']['b'],s['win']['position']),
-        ('22.5','44.5',50),'win threshold')
-  await reset(page)
+  check('119. 30-8 screenshot both midpoint gaps',
+        (s['win']['a'],s['win']['b']),('22.5','44.5'),'midpoint')
+  await reset(page,reds=5,phase='reds',scores=[30,8],striker=1)
+  await clicks(page,'.ball-button.red')
+  await page.wait_for_timeout(250)
   s=await state(page)
-  check('123. Reset restores original half-point gaps',
-        (s['win']['a'],s['win']['b'],s['win']['position']),
-        ('73.5','73.5',50),'win threshold')
+  check('120. Fixed centre for right striker and pending red',
+        (round(s['win']['markerX']-s['win']['domainCenter'],1),round(s['win']['numberCenter']-s['win']['domainCenter'],1)),
+        (0.0,0.0),'midpoint')
+  await reset(page)
+  await page.wait_for_timeout(250)
+  s=await state(page)
+  check('121. Reset midpoint geometry remains fixed',
+        (round(s['win']['markerX']-s['win']['domainCenter'],1),round(s['win']['numberCenter']-s['win']['domainCenter'],1)),
+        (0.0,0.0),'midpoint')
 
   # tests at end where exceptions intentionally raised by corrupt legacy undo
   passed=sum(x['pass'] is True for x in results)
