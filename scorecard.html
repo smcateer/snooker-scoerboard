@@ -48,14 +48,16 @@ h1{font-size:20px;line-height:1.1;letter-spacing:.15em;font-weight:850;text-tran
 .fill.a{left:0;background:var(--a);box-shadow:inset 0 2px 0 #ffffff40}
 .fill.b{right:0;background:var(--b);box-shadow:inset 0 2px 0 #ffffff40}
 /* The next colour is an exclusive opportunity, not points already scored. */
-.hatch{position:absolute;top:0;bottom:0;opacity:.23;transition:width .18s ease}
+.hatch{position:absolute;top:0;bottom:0;opacity:.42;box-shadow:inset 0 0 0 1px #ffffff22;transition:width .18s ease}
 .hatch.a{background:var(--a)}
 .hatch.b{background:var(--b)}
 .marker{position:absolute;left:var(--win-position,50%);top:-16px;height:128px;border-left:2px solid var(--accent);z-index:2;filter:drop-shadow(0 0 3px #d5fa5860);pointer-events:none;transition:left .18s ease}
 .marker::after{content:"";position:absolute;bottom:5px;width:14px;height:16px;background:var(--accent);clip-path:polygon(0 50%,100% 0,100% 100%)}
 .marker.a::after{left:-22px}
 .marker.b::after{left:10px;transform:scaleX(-1)}
-.target-number{position:absolute;left:var(--win-position,50%);top:-47px;transform:translateX(-50%);font-weight:800;font-size:16px;color:var(--accent);font-variant-numeric:tabular-nums;z-index:3;white-space:nowrap;pointer-events:none;transition:left .18s ease}
+.target-number{position:absolute;left:var(--win-position,50%);top:-47px;transform:translateX(-50%);display:grid;grid-template-columns:74px 74px;gap:18px;align-items:center;font-weight:800;font-size:16px;font-variant-numeric:tabular-nums;z-index:3;white-space:nowrap;pointer-events:none;transition:left .18s ease}
+.target-half.a{text-align:right;color:var(--a)}
+.target-half.b{text-align:left;color:var(--b)}
 .nameplates{position:absolute;left:0;top:77px;width:100%;pointer-events:none;font-size:23px;font-weight:820;letter-spacing:-.02em}
 .player-name{position:absolute;max-width:43%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .player-name.a{left:clamp(0px,calc(50% - var(--bar-half)),calc(50% - 110px));text-align:left;padding-right:8px;color:var(--a)}
@@ -159,7 +161,7 @@ dialog h2{margin:0 0 18px;font-size:21px;line-height:1.1}
   .stage{height:128px}
   .domain{margin-inline:64px;height:52px}
   .track{height:48px;border-radius:6px}
-  .target-number{top:-36px;font-size:13px}
+  .target-number{top:-36px;font-size:13px;grid-template-columns:56px 56px;gap:13px}
   .marker{height:102px;top:-11px}
   .nameplates{top:57px;font-size:18px}
   .player-name.a{left:clamp(0px,calc(50% - var(--bar-half)),calc(50% - 48px))}
@@ -232,14 +234,17 @@ dialog h2{margin:0 0 18px;font-size:21px;line-height:1.1}
     <div class="hero">
       <div class="stage" role="img" aria-label="Snooker frame scores and remaining points" id="scoregraphic">
         <div class="domain" id="domain">
-          <div class="target-number" id="target-number" aria-hidden="true"><span id="target-value">147</span></div>
+          <div class="target-number" id="target-number" aria-hidden="true">
+            <span class="target-half a" id="target-a">73.5</span>
+            <span class="target-half b" id="target-b">73.5</span>
+          </div>
           <div class="track" id="track">
             <div class="fill a" id="fill-a"></div>
             <div class="fill b" id="fill-b"></div>
             <div class="hatch a" id="hatch-a" hidden></div>
             <div class="hatch b" id="hatch-b" hidden></div>
           </div>
-          <div class="marker a" id="marker" title="Win threshold; provisional colour counts at half value on this scale"></div>
+          <div class="marker a" id="marker" title="Win threshold after a missed pending colour; faded area shows the full provisional score"></div>
           <div class="score a active" id="score-panel-a">
             <span class="identity">A</span><strong id="score-a">0</strong>
           </div>
@@ -502,31 +507,29 @@ dialog h2{margin:0 0 18px;font-size:21px;line-height:1.1}
     $('score-panel-a').classList.toggle('three-digit',String(s.a).length>=3);
     $('score-panel-b').classList.toggle('three-digit',String(s.b).length>=3);
     $('name-a').textContent=state.names[0]||'Player A';$('name-b').textContent=state.names[1]||'Player B';
-    // Shared points are a two-for-one race: scoring one gains one and denies
-    // the opponent one. The striker-only pending colour is only a one-for-one
-    // advantage, so its equivalent race distance is half its face value.
-    // The win threshold is the midpoint of the miss scenario's frame total.
-    const who=state.striker;
-    const ownScore=who===0?s.a:s.b;
-    const missTotal=s.a+s.b+s.remain;
-    const threshold=missTotal/2;
-    const pointsNeeded=Math.floor(threshold)+1-ownScore;
-    const gapLabel=ownScore>threshold?'+'+String(ownScore-threshold):String(pointsNeeded);
-    $('target-value').textContent=gapLabel;
+    // The lime line marks the midpoint of the miss scenario (excluding the
+    // striker-only pending colour). Both readouts retain exact half-point gaps.
+    const threshold=(s.a+s.b+s.remain)/2;
+    const fmt=n=>Number.isInteger(n)?String(n):n.toFixed(1);
+    const gapFor=score=>{
+      const delta=score-threshold;
+      return delta>0?'+'+fmt(delta):fmt(-delta);
+    };
+    const marginA=gapFor(s.a),marginB=gapFor(s.b);
+    $('target-a').textContent=marginA;
+    $('target-b').textContent=marginB;
     const scale=Math.max(147,s.total,1),fraction=s.total/scale*100;
     $('domain').style.setProperty('--bar-width',fraction+'%');
     $('domain').style.setProperty('--bar-half',fraction/2+'%');
     const share=Math.max(s.total,1);
-    // Plot the miss-scenario midpoint on the current total's spatial scale.
-    // Mirror around the centre when B is playing, so the pending area always
-    // approaches the line from the striker's own side.
-    const localPosition=who===0?threshold/share:1-threshold/share;
+    // Plot the threshold on the contracted track; mirror for the right striker.
+    const localPosition=state.striker===0?threshold/share:1-threshold/share;
     const markerPosition=50+(localPosition-.5)*fraction;
     $('domain').style.setProperty('--win-position',markerPosition+'%');
     $('marker').dataset.threshold=threshold;
-    $('marker').dataset.pointsNeeded=pointsNeeded;
-    const pctA=s.a/share*100, pctB=s.b/share*100;
-    const widthBonus=(s.edge/2)/share*100;
+    const pctA=s.a/share*100,pctB=s.b/share*100;
+    // Full face value, deliberately faint because those points are unbanked.
+    const widthBonus=s.edge/share*100;
     $('fill-a').style.width=pctA+'%';$('fill-b').style.width=pctB+'%';
     $('hatch-a').hidden=!(s.edge&&state.striker===0);
     $('hatch-b').hidden=!(s.edge&&state.striker===1);
@@ -541,7 +544,7 @@ dialog h2{margin:0 0 18px;font-size:21px;line-height:1.1}
     $('scoregraphic').setAttribute('aria-label',
       `${state.names[0]||'Player A'} ${s.a}, ${state.names[1]||'Player B'} ${s.b}, ${s.remain} common points left, `+
       (s.edge?`${s.edge} provisional to ${(state.names[state.striker]|| (state.striker===0?'Player A':'Player B'))}, `:'')+
-      `win threshold ${threshold}; ${gapLabel} shared points needed from current score; ${s.edge/2} provisional equivalent. `+
+      `miss scenario win threshold ${threshold}; A gap ${marginA}, B gap ${marginB}; ${s.edge} provisional to striker. `+
       (needA?'A needs snookers. ':'')+(needB?'B needs snookers. ':''));
     $('break').textContent=state.break;
     $('reds').textContent=state.reds;$('reds-container').hidden=state.reds===0;
