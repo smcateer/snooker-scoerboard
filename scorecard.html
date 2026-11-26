@@ -509,13 +509,16 @@ dialog h2{margin:0 0 18px;font-size:21px;line-height:1.1}
     $('score-panel-a').classList.toggle('three-digit',String(s.a).length>=3);
     $('score-panel-b').classList.toggle('three-digit',String(s.b).length>=3);
     $('name-a').textContent=state.names[0]||'Player A';$('name-b').textContent=state.names[1]||'Player B';
-    // Half-point centre boundary: 60.5 means 60 would draw, 61 wins.
-    // Negative distance is displayed as a remaining positive requirement;
-    // positive distance carries a '+' to show the centre has been passed.
-    const boundary=Math.floor(s.total/2)+0.5;
+    // Use the exact midpoint of the total possible frame score.
+    // For an even total, the midpoint is a reachable draw (e.g. 132 / 2 = 66).
+    // For an odd total, the midpoint sits between attainable scores (147 / 2 = 73.5).
+    // Below: points to draw or reach the midpoint; above: signed surplus.
+    const boundary=s.total/2;
     const margin=points=>{
       const delta=points-boundary;
-      return delta>0?'+'+delta.toFixed(1):(-delta).toFixed(1);
+      const magnitude=Math.abs(delta);
+      const value=Number.isInteger(magnitude)?String(magnitude):magnitude.toFixed(1);
+      return delta>0?'+'+value:value;
     };
     const marginA=margin(s.a),marginB=margin(s.b);
     $('target-a').textContent=marginA;

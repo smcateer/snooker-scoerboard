@@ -6,7 +6,7 @@ A compact, stateful scoreboard for a game of snooker. Rather than showing just t
 
 ## Design
 
-The score bar is centred on the current to-win threshold. Instead of showing the absolute target, it displays each player's distance to a half-point crossing boundary: an unsigned number means points still required and a `+` means the player has passed it. For a frame total of 120, the boundary is 60.5 (60 would draw): 30 shows `30.5`, 61 shows `+0.5`, and 66 shows `+5.5`. Each player's points fill in from opposite ends; the unclaimed portion is black. After a red, a 50/50 hatched area shows the striker's *provisional* colour opportunity, which is not yet part of their scored total. The bar adjusts when points become unavailable. An arrow identifies the player at the table.
+The score bar is centred on half the possible frame total. Instead of showing an absolute target, it displays each player's distance to that midpoint: unsigned numbers show the points required to reach it (a draw if the total is even), and a `+` shows how far the player has passed it. With a total of 120, the midpoint is 60: scores 30, 60 and 65 show `30`, `0` and `+5`. With an odd total such as 147, the midpoint is 73.5 and the display uses half-points. The numbers are not a direct count of snookers needed. Each player's points fill in from opposite ends; the unclaimed portion is black. After a red, a 50/50 hatched area shows the striker's *provisional* colour opportunity, which is not yet part of their scored total. The bar adjusts when points become unavailable. An arrow identifies the player at the table.
 
 The UI uses contextual buttons (ball colours, Miss, Foul), with name editing, manual corrections and history in menus. Break, reds remaining and any free-ball state are shown without explanatory clutter. Frame and Undo state persist in browser localStorage.
 
@@ -25,7 +25,7 @@ index.html                        Redirect from the site root to scorecard.html
 requirements-dev.txt             Pinned Python/Playwright test dependencies
 .devcontainer/devcontainer.json  VS Code development-container environment
 .github/workflows/tests.yml      GitHub Actions browser regression tests
-tests/test_scoreboard.py         Browser integration tests (110 scenarios)
+tests/test_scoreboard.py         Browser integration tests (111 scenarios)
 ```
 
 ## Running the scoreboard
