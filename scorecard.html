@@ -239,7 +239,7 @@ dialog h2{margin:0 0 18px;font-size:21px;line-height:1.1}
             <div class="hatch a" id="hatch-a" hidden></div>
             <div class="hatch b" id="hatch-b" hidden></div>
           </div>
-          <div class="marker a" id="marker" title="Opponent's highest possible score without snookers"></div>
+          <div class="marker a" id="marker" title="Win threshold; provisional colour counts at half value on this scale"></div>
           <div class="score a active" id="score-panel-a">
             <span class="identity">A</span><strong id="score-a">0</strong>
           </div>
@@ -502,30 +502,31 @@ dialog h2{margin:0 0 18px;font-size:21px;line-height:1.1}
     $('score-panel-a').classList.toggle('three-digit',String(s.a).length>=3);
     $('score-panel-b').classList.toggle('three-digit',String(s.b).length>=3);
     $('name-a').textContent=state.names[0]||'Player A';$('name-b').textContent=state.names[1]||'Player B';
-    // The win line is the opponent's reachable maximum with ordinary scoring.
-    // The striker's colour bonus is exclusive and does not increase that maximum.
+    // Shared points are a two-for-one race: scoring one gains one and denies
+    // the opponent one. The striker-only pending colour is only a one-for-one
+    // advantage, so its equivalent race distance is half its face value.
+    // The win threshold is the midpoint of the miss scenario's frame total.
     const who=state.striker;
-    const opponentReach=who===0?s.reachB:s.reachA;
     const ownScore=who===0?s.a:s.b;
-    const gap=ownScore-opponentReach;
-    const gapLabel=gap>0?'+'+gap:String(-gap);
+    const missTotal=s.a+s.b+s.remain;
+    const threshold=missTotal/2;
+    const pointsNeeded=Math.floor(threshold)+1-ownScore;
+    const gapLabel=ownScore>threshold?'+'+String(ownScore-threshold):String(pointsNeeded);
     $('target-value').textContent=gapLabel;
-    // Map the opponent's maximum onto the scored-point axis from the striker's
-    // end. The track contracts about the fixed centre as points disappear.
     const scale=Math.max(147,s.total,1),fraction=s.total/scale*100;
     $('domain').style.setProperty('--bar-width',fraction+'%');
     $('domain').style.setProperty('--bar-half',fraction/2+'%');
     const share=Math.max(s.total,1);
-    // From the left for A, from the right for B. Distances are points, not %
-    // of one player's own reach: this makes crossing the line meaningful.
-    const thresholdFraction=Math.max(0,Math.min(1,opponentReach/share));
-    const localPosition=who===0?thresholdFraction:1-thresholdFraction;
+    // Plot the miss-scenario midpoint on the current total's spatial scale.
+    // Mirror around the centre when B is playing, so the pending area always
+    // approaches the line from the striker's own side.
+    const localPosition=who===0?threshold/share:1-threshold/share;
     const markerPosition=50+(localPosition-.5)*fraction;
     $('domain').style.setProperty('--win-position',markerPosition+'%');
-    $('marker').dataset.opponentReach=opponentReach;
-    $('marker').dataset.gap=gap;
+    $('marker').dataset.threshold=threshold;
+    $('marker').dataset.pointsNeeded=pointsNeeded;
     const pctA=s.a/share*100, pctB=s.b/share*100;
-    const widthBonus=s.edge/share*100;
+    const widthBonus=(s.edge/2)/share*100;
     $('fill-a').style.width=pctA+'%';$('fill-b').style.width=pctB+'%';
     $('hatch-a').hidden=!(s.edge&&state.striker===0);
     $('hatch-b').hidden=!(s.edge&&state.striker===1);
@@ -540,7 +541,7 @@ dialog h2{margin:0 0 18px;font-size:21px;line-height:1.1}
     $('scoregraphic').setAttribute('aria-label',
       `${state.names[0]||'Player A'} ${s.a}, ${state.names[1]||'Player B'} ${s.b}, ${s.remain} common points left, `+
       (s.edge?`${s.edge} provisional to ${(state.names[state.striker]|| (state.striker===0?'Player A':'Player B'))}, `:'')+
-      `opponent maximum ${opponentReach}; striker distance ${gapLabel}. `+
+      `win threshold ${threshold}; ${gapLabel} shared points needed from current score; ${s.edge/2} provisional equivalent. `+
       (needA?'A needs snookers. ':'')+(needB?'B needs snookers. ':''));
     $('break').textContent=state.break;
     $('reds').textContent=state.reds;$('reds-container').hidden=state.reds===0;

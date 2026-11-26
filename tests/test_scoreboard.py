@@ -21,7 +21,7 @@ hook = '''
   window.__test = {
     reset:()=>{state=newState();undoStack=[];mode='normal';render()},
     set:(patch)=>{state=Object.assign(newState(),clone(patch));mode='normal';render()},
-    get:()=>({state:clone(state),balance:balance(),mode,buttons:[...document.querySelectorAll('#balls button')].map(b=>b.className),target:String(Math.floor(balance().total/2)+1),win:{label:document.querySelector('#target-value').textContent,reach:Number(document.querySelector('#marker').dataset.opponentReach),gap:Number(document.querySelector('#marker').dataset.gap),position:parseFloat(document.querySelector('#domain').style.getPropertyValue('--win-position')),markerX:document.querySelector('#marker').getBoundingClientRect().left,solidRight:document.querySelector('#fill-a').getBoundingClientRect().right,fadedRight:document.querySelector('#hatch-a').getBoundingClientRect().right}}),
+    get:()=>({state:clone(state),balance:balance(),mode,buttons:[...document.querySelectorAll('#balls button')].map(b=>b.className),target:String(Math.floor(balance().total/2)+1),win:{label:document.querySelector('#target-value').textContent,threshold:Number(document.querySelector('#marker').dataset.threshold),pointsNeeded:Number(document.querySelector('#marker').dataset.pointsNeeded),position:parseFloat(document.querySelector('#domain').style.getPropertyValue('--win-position')),markerX:document.querySelector('#marker').getBoundingClientRect().left,solidRight:document.querySelector('#fill-a').getBoundingClientRect().right,fadedRight:document.querySelector('#hatch-a').getBoundingClientRect().right}}),
     oldUndo:()=>{const old=clone(state);delete old.names;undoStack.push(old);render()},
   };
   render();
@@ -642,92 +642,112 @@ async def main():
   check('103. Loaded re-spotted game finishes on next legal pot',
         (s['state']['scores'],s['state']['done']),([61,68],True),'persistence')
 
-  # The readout now measures the active player's shortfall/surplus against
-  # the OTHER player's maximum, not half the total frame budget.
+  # 104–121: win threshold is half the *miss* scenario total.
+  # The pending colour's one-sided advantage counts as half the equivalent
+  # shared-point distance; it must only cross if potting it wins the frame.
   await reset(page)
   s=await state(page)
-  check('104. Initial win line marks opponent maximum', (s['win']['reach'],s['win']['label']),(147,'147'),'win threshold')
+  check('104. Initial frame needs 74 shared points',
+        (s['win']['threshold'],s['win']['label'],s['win']['position']),
+        (73.5,'74',50),'win threshold')
   await clicks(page,'.ball-button.red')
   s=await state(page)
-  check('105. After red, opponent loses 8 available points', (s['win']['reach'],s['win']['label']),(139,'138'),'win threshold')
+  check('105. Potted red moves win threshold by 3.5',
+        (s['win']['threshold'],s['win']['label'],round(s['win']['position'],5)),
+        (70,'70',round(50-3.5/147*100,5)),'win threshold')
   await clicks(page,'.ball-button.black')
   s=await state(page)
-  check('106. Potting black preserves opponent maximum', (s['win']['reach'],s['win']['label']),(139,'131'),'win threshold')
+  check('106. Potting black returns threshold to centre',
+        (s['win']['threshold'],s['win']['label'],s['win']['position']),
+        (73.5,'66',50),'win threshold')
   await reset(page,reds=0,phase='clearance',scores=[40,27])
   s=await state(page)
-  check('107. No red: compare own score to opponent and remaining', (s['win']['reach'],s['win']['label']),(54,'14'),'win threshold')
+  check('107. Ordinary clearance uses exact half-total target',
+        (s['win']['threshold'],s['win']['label']),(47,'8'),'win threshold')
   await reset(page,reds=0,phase='clearance',scores=[60,33])
   s=await state(page)
-  check('108. Crossing actual opponent maximum shows signed surplus', (s['win']['reach'],s['win']['label']),(60,'0'),'win threshold')
+  check('108. Exactly on midpoint still needs one point to win',
+        (s['win']['threshold'],s['win']['label']),(60,'1'),'win threshold')
   await reset(page,reds=0,phase='clearance',scores=[65,28])
   s=await state(page)
-  check('109. Five beyond opponent maximum displays +10', (s['win']['reach'],s['win']['label']),(55,'+10'),'win threshold')
+  check('109. Five beyond midpoint shows +5',
+        (s['win']['threshold'],s['win']['label']),(60,'+5'),'win threshold')
   await reset(page,reds=0,phase='clearance',scores=[28,65],striker=1)
   s=await state(page)
-  check('110. Mirrored player sees own surplus', (s['win']['reach'],s['win']['label']),(55,'+10'),'win threshold')
+  check('110. Mirrored player sees +5',
+        (s['win']['threshold'],s['win']['label']),(60,'+5'),'win threshold')
   await reset(page,reds=5,phase='reds',scores=[46,19],striker=0)
   await clicks(page,'.ball-button.red')
   s=await state(page)
-  check('111. Screenshot situation after a red: 47 vs 19, 4 reds left',
-        (s['win']['reach'],s['win']['label']),(78,'31'),'win threshold')
-
-  # Moving win threshold: opponent's maximum, with exclusive colour potential
-  # visibly separate from banked points. The full geometry is observed via the DOM.
+  check('111. Score 47-19: miss midpoint and gap are small',
+        (s['win']['threshold'],s['win']['label'],s['balance']['edge']),
+        (62.5,'16',7),'win threshold')
   await reset(page,reds=0,phase='clearance',scores=[75,19],alive=[2,3,4,5,6,7],striker=0)
   s=await state(page)
-  check('112. Ronnie three short of John maximum', (s['win']['reach'],s['win']['label']),(46,'+29'),'win threshold')
+  check('112. Ronnie score already beyond regular winning threshold',
+        (s['win']['threshold'],s['win']['label']),(60.5,'+14.5'),'win threshold')
   await reset(page,reds=5,phase='reds',scores=[66,19],striker=0)
-  # Five reds give 67 common points before potting a red (5*8+27).
   s=await state(page)
-  check('113. Common maximum before red', (s['balance']['remain'],s['win']['reach']), (67,86),'win threshold')
+  check('113. Before red ordinary threshold central',
+        (s['balance']['remain'],s['win']['threshold']),(67,76),'win threshold')
   await clicks(page,'.ball-button.red')
   s=await state(page)
-  check('114. Red immediately lowers opponent maximum by eight',
-        (s['state']['scores'],s['balance']['edge'],s['win']['reach']),
-        ([67,19],7,78),'win threshold')
-  # Solid score 67 is short of John's 78; with black 74 is still short.
-  check('115. Neither solid nor faded crosses the threshold',
-        (s['win']['gap'],s['win']['label'],s['state']['phase']),
-        (-11,'11','choice'),'win threshold')
+  check('114. Red lowers opponent reach by 8, midpoint by 3.5',
+        (s['state']['scores'],s['balance']['edge'],s['win']['threshold']),
+        ([67,19],7,72.5),'win threshold')
+  check('115. Score 67: black not enough to win',
+        (s['win']['label'],s['win']['threshold']),('6',72.5),'win threshold')
   await reset(page,reds=5,phase='reds',scores=[72,19],striker=0)
   await clicks(page,'.ball-button.red')
-  # Let the animated threshold and provisional segment settle before measuring.
   await page.wait_for_timeout(250)
   s=await state(page)
-  check('116. Faded black crosses John maximum; solid still short',
-        (s['win']['gap'],s['win']['reach'],s['balance']['edge'],s['win']['solidRight']<s['win']['markerX']<s['win']['fadedRight']),
-        (-5,78,7,True),'win threshold')
-  before=s['win']['reach']
+  check('116. Faded black crosses win threshold but solid does not',
+        (s['win']['threshold'],s['win']['label'],s['win']['solidRight']<s['win']['markerX']<s['win']['fadedRight']),
+        (75.5,'3',True),'win threshold')
+  before=s['win']['threshold']
   await clicks(page,'.ball-button.black')
   s=await state(page)
-  check('117. Potting black makes crossing solid, opponent reach unchanged',
-        (s['state']['scores'][0],s['win']['gap'],s['win']['reach']),
-        (80,2,before),'win threshold')
+  check('117. Potting black solidly passes the moved threshold',
+        (s['state']['scores'][0],s['win']['threshold'],s['win']['label']),
+        (80,79,'+1'),'win threshold')
   await reset(page,reds=5,phase='reds',scores=[72,19],striker=0)
   await clicks(page,'.ball-button.red','#miss')
   s=await state(page)
-  check('118. Missing black removes faded opportunity, not opponent reach',
-        (s['state']['scores'],s['balance']['edge'],s['state']['striker'],s['balance']['reachB'],s['win']['reach']),
-        ([73,19],0,1,78,132),'win threshold')
+  check('118. Missing black removes provisional region and shifts striker',
+        (s['state']['scores'],s['balance']['edge'],s['state']['striker'],s['win']['threshold']),
+        ([73,19],0,1,75.5),'win threshold')
   await reset(page,reds=5,phase='reds',scores=[79,19],striker=0)
   await clicks(page,'.ball-button.red')
-  # The moving lime marker has a 180 ms CSS transition; measure after settling.
   await page.wait_for_timeout(250)
   s=await state(page)
-  check('119. Solid score has already passed opponent maximum',
-        (s['state']['scores'][0],s['win']['reach'],s['win']['label'],s['win']['solidRight']>s['win']['markerX']),
-        (80,78,'+2',True),'win threshold')
+  check('119. Solid already crosses; colour unnecessary',
+        (s['state']['scores'][0],s['win']['threshold'],s['win']['label'],s['win']['solidRight']>s['win']['markerX']),
+        (80,79,'+1',True),'win threshold')
   await reset(page,reds=5,phase='reds',scores=[19,72],striker=1)
   await clicks(page,'.ball-button.red')
+  await page.wait_for_timeout(250)
   s=await state(page)
-  check('120. Win threshold mirrors for right-hand striker',
-        (s['win']['reach'],s['win']['gap'],s['win']['label']),
-        (78,-5,'5'),'win threshold')
-  # First fresh frame: win line sits at far end, not the previous midpoint.
+  rect=await page.evaluate("""() => ({solid:document.querySelector('#fill-b').getBoundingClientRect().left,fade:document.querySelector('#hatch-b').getBoundingClientRect().left,marker:document.querySelector('#marker').getBoundingClientRect().left})""")
+  check('120. Win threshold and faded crossing mirror for John',
+        (s['win']['threshold'],s['win']['label'],rect['fade']<rect['marker']<rect['solid']),
+        (75.5,'3',True),'win threshold')
+  # Regression for the supplied screenshots: the old version displayed 144 and
+  # 69, with the lime line close to the outer edge rather than the centre.
+  await reset(page,reds=0,phase='clearance',scores=[29,0],alive=[2,3,4,5,6,7],striker=1)
+  s=await state(page)
+  check('121. Screenshot: 29-0 with John at table is not 144 needed',
+        (s['win']['label'],s['win']['position']),
+        ('29',50),'win threshold')
+  await reset(page,reds=5,phase='reds',scores=[30,8],striker=0)
+  s=await state(page)
+  check('122. Screenshot: 30-8 shows a centred ordinary threshold',
+        (s['win']['label'],s['win']['position']),
+        ('23',50),'win threshold')
   await reset(page)
   s=await state(page)
-  check('121. Initial win threshold is opponents maximum 147',
-        (s['win']['reach'],s['win']['label']),(147,'147'),'win threshold')
+  check('123. Fresh frame restored to 74 needed',
+        (s['win']['threshold'],s['win']['label'],s['win']['position']),
+        (73.5,'74',50),'win threshold')
 
   # tests at end where exceptions intentionally raised by corrupt legacy undo
   passed=sum(x['pass'] is True for x in results)
