@@ -21,7 +21,7 @@ hook = '''
   window.__test = {
     reset:()=>{state=newState();undoStack=[];mode='normal';render()},
     set:(patch)=>{state=Object.assign(newState(),clone(patch));mode='normal';render()},
-    get:()=>({state:clone(state),balance:balance(),mode,buttons:[...document.querySelectorAll('#balls button')].map(b=>b.className),target:document.querySelector('#target-number').textContent}),
+    get:()=>({state:clone(state),balance:balance(),mode,buttons:[...document.querySelectorAll('#balls button')].map(b=>b.className),target:String(Math.floor(balance().total/2)+1),margins:[document.querySelector('#target-a').textContent,document.querySelector('#target-b').textContent]}),
     oldUndo:()=>{const old=clone(state);delete old.names;undoStack.push(old);render()},
   };
   render();
@@ -641,6 +641,29 @@ async def main():
   s=await state(page)
   check('103. Loaded re-spotted game finishes on next legal pot',
         (s['state']['scores'],s['state']['done']),([61,68],True),'persistence')
+
+  # Display semantics: centred crossing boundary with half-point separation.
+  await reset(page)
+  s=await state(page)
+  check('104. Initial frame: symmetric half-point gaps',s['margins'],['73.5','73.5'],'centre margin')
+  await clicks(page,'.ball-button.red')
+  s=await state(page)
+  check('105. Red retains half-point boundary with pending colour',s['margins'],['72.5','73.5'],'centre margin')
+  await reset(page,reds=0,phase='clearance',scores=[30,63])
+  s=await state(page)
+  check('106. 60-60 draw boundary displays 30.5 remaining',s['margins'],['30.5','+2.5'],'centre margin')
+  await reset(page,reds=0,phase='clearance',scores=[60,33])
+  s=await state(page)
+  check('107. At 60 display 0.5 before crossing 60.5',s['margins'],['0.5','27.5'],'centre margin')
+  await reset(page,reds=0,phase='clearance',scores=[61,32])
+  s=await state(page)
+  check('108. At 61 display +0.5, not +0',s['margins'],['+0.5','28.5'],'centre margin')
+  await reset(page,reds=0,phase='clearance',scores=[66,27])
+  s=await state(page)
+  check('109. At 66 display +5.5',s['margins'],['+5.5','33.5'],'centre margin')
+  await reset(page,reds=0,phase='clearance',scores=[27,66])
+  s=await state(page)
+  check('110. Signed margin is symmetric',s['margins'],['33.5','+5.5'],'centre margin')
 
   # tests at end where exceptions intentionally raised by corrupt legacy undo
   passed=sum(x['pass'] is True for x in results)

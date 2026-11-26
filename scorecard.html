@@ -57,7 +57,9 @@ h1{font-size:20px;line-height:1.1;letter-spacing:.15em;font-weight:850;text-tran
 .marker::after{content:"";position:absolute;bottom:5px;width:14px;height:16px;background:var(--accent);clip-path:polygon(0 50%,100% 0,100% 100%)}
 .marker.a::after{left:-22px}
 .marker.b::after{left:10px;transform:scaleX(-1)}
-.target-number{position:absolute;left:50%;top:-47px;transform:translateX(-50%);color:var(--accent);font-weight:800;font-size:16px;font-variant-numeric:tabular-nums;z-index:3}
+.target-number{position:absolute;left:50%;top:-47px;transform:translateX(-50%);display:grid;grid-template-columns:74px 74px;gap:18px;align-items:center;font-weight:800;font-size:16px;font-variant-numeric:tabular-nums;z-index:3;white-space:nowrap;pointer-events:none}
+.target-half.a{text-align:right;color:var(--a)}
+.target-half.b{text-align:left;color:var(--b)}
 .nameplates{position:absolute;left:0;top:77px;width:100%;pointer-events:none;font-size:23px;font-weight:820;letter-spacing:-.02em}
 .player-name{position:absolute;max-width:43%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .player-name.a{left:clamp(0px,calc(50% - var(--bar-half)),calc(50% - 110px));text-align:left;padding-right:8px;color:var(--a)}
@@ -161,7 +163,7 @@ dialog h2{margin:0 0 18px;font-size:21px;line-height:1.1}
   .stage{height:128px}
   .domain{margin-inline:64px;height:52px}
   .track{height:48px;border-radius:6px}
-  .target-number{top:-36px;font-size:13px}
+  .target-number{top:-36px;font-size:13px;grid-template-columns:56px 56px;gap:13px}
   .marker{height:102px;top:-11px}
   .nameplates{top:57px;font-size:18px}
   .player-name.a{left:clamp(0px,calc(50% - var(--bar-half)),calc(50% - 48px))}
@@ -234,14 +236,17 @@ dialog h2{margin:0 0 18px;font-size:21px;line-height:1.1}
     <div class="hero">
       <div class="stage" role="img" aria-label="Snooker frame scores and remaining points" id="scoregraphic">
         <div class="domain" id="domain">
-          <div class="target-number" id="target-number">74</div>
+          <div class="target-number" id="target-number" aria-hidden="true">
+            <span class="target-half a" id="target-a">73.5</span>
+            <span class="target-half b" id="target-b">73.5</span>
+          </div>
           <div class="track" id="track">
             <div class="fill a" id="fill-a"></div>
             <div class="fill b" id="fill-b"></div>
             <div class="hatch a" id="hatch-a" hidden></div>
             <div class="hatch b" id="hatch-b" hidden></div>
           </div>
-          <div class="marker a" id="marker" title="Points needed to put the other player in snookers-required territory"></div>
+          <div class="marker a" id="marker" title="Centre crossing boundary; numbers show how far each player is below or beyond it"></div>
           <div class="score a active" id="score-panel-a">
             <span class="identity">A</span><strong id="score-a">0</strong>
           </div>
@@ -504,8 +509,17 @@ dialog h2{margin:0 0 18px;font-size:21px;line-height:1.1}
     $('score-panel-a').classList.toggle('three-digit',String(s.a).length>=3);
     $('score-panel-b').classList.toggle('three-digit',String(s.b).length>=3);
     $('name-a').textContent=state.names[0]||'Player A';$('name-b').textContent=state.names[1]||'Player B';
-    const target=Math.floor(s.total/2)+1;
-    $('target-number').textContent=target;
+    // Half-point centre boundary: 60.5 means 60 would draw, 61 wins.
+    // Negative distance is displayed as a remaining positive requirement;
+    // positive distance carries a '+' to show the centre has been passed.
+    const boundary=Math.floor(s.total/2)+0.5;
+    const margin=points=>{
+      const delta=points-boundary;
+      return delta>0?'+'+delta.toFixed(1):(-delta).toFixed(1);
+    };
+    const marginA=margin(s.a),marginB=margin(s.b);
+    $('target-a').textContent=marginA;
+    $('target-b').textContent=marginB;
     // Both ends contract symmetrically. A potted red replaces 8 common
     // possible points with 1 scored + 7 conditional; the target stays fixed
     // until a colour opportunity is resolved or lost.
@@ -529,7 +543,7 @@ dialog h2{margin:0 0 18px;font-size:21px;line-height:1.1}
     $('scoregraphic').setAttribute('aria-label',
       `${state.names[0]||'Player A'} ${s.a}, ${state.names[1]||'Player B'} ${s.b}, ${s.remain} common points left, `+
       (s.edge?`${s.edge} provisional to ${(state.names[state.striker]|| (state.striker===0?'Player A':'Player B'))}, `:'')+
-      `centre threshold ${target}. `+
+      `centre crossing boundary ${boundary}; A distance ${marginA}, B distance ${marginB}. `+
       (needA?'A needs snookers. ':'')+(needB?'B needs snookers. ':''));
     $('break').textContent=state.break;
     $('reds').textContent=state.reds;$('reds-container').hidden=state.reds===0;
