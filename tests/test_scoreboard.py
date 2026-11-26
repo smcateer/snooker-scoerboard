@@ -691,6 +691,8 @@ async def main():
         (-11,'11','choice'),'win threshold')
   await reset(page,reds=5,phase='reds',scores=[72,19],striker=0)
   await clicks(page,'.ball-button.red')
+  # Let the animated threshold and provisional segment settle before measuring.
+  await page.wait_for_timeout(250)
   s=await state(page)
   check('116. Faded black crosses John maximum; solid still short',
         (s['win']['gap'],s['win']['reach'],s['balance']['edge'],s['win']['solidRight']<s['win']['markerX']<s['win']['fadedRight']),
