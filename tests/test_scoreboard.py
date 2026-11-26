@@ -709,6 +709,8 @@ async def main():
         ([73,19],0,1,78,132),'win threshold')
   await reset(page,reds=5,phase='reds',scores=[79,19],striker=0)
   await clicks(page,'.ball-button.red')
+  # The moving lime marker has a 180 ms CSS transition; measure after settling.
+  await page.wait_for_timeout(250)
   s=await state(page)
   check('119. Solid score has already passed opponent maximum',
         (s['state']['scores'][0],s['win']['reach'],s['win']['label'],s['win']['solidRight']>s['win']['markerX']),
