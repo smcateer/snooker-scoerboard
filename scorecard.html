@@ -47,19 +47,15 @@ h1{font-size:20px;line-height:1.1;letter-spacing:.15em;font-weight:850;text-tran
 .fill{position:absolute;top:0;bottom:0;transition:width .18s ease}
 .fill.a{left:0;background:var(--a);box-shadow:inset 0 2px 0 #ffffff40}
 .fill.b{right:0;background:var(--b);box-shadow:inset 0 2px 0 #ffffff40}
-/* Provisional points are 50/50 player-colour/black (3px/3px).
-   They occupy their own portion of the total frame budget and are available
-   only to the striker; the common unclaimed space stays black. */
-.hatch{position:absolute;top:0;bottom:0;transition:width .18s ease}
-.hatch.a{background:repeating-linear-gradient(-55deg,var(--a) 0 3px,#000 3px 6px)}
-.hatch.b{background:repeating-linear-gradient(-55deg,var(--b) 0 3px,#000 3px 6px)}
-.marker{position:absolute;left:50%;top:-16px;height:128px;border-left:2px solid var(--accent);z-index:2;filter:drop-shadow(0 0 3px #d5fa5860);pointer-events:none}
+/* The next colour is an exclusive opportunity, not points already scored. */
+.hatch{position:absolute;top:0;bottom:0;opacity:.23;transition:width .18s ease}
+.hatch.a{background:var(--a)}
+.hatch.b{background:var(--b)}
+.marker{position:absolute;left:var(--win-position,50%);top:-16px;height:128px;border-left:2px solid var(--accent);z-index:2;filter:drop-shadow(0 0 3px #d5fa5860);pointer-events:none;transition:left .18s ease}
 .marker::after{content:"";position:absolute;bottom:5px;width:14px;height:16px;background:var(--accent);clip-path:polygon(0 50%,100% 0,100% 100%)}
 .marker.a::after{left:-22px}
 .marker.b::after{left:10px;transform:scaleX(-1)}
-.target-number{position:absolute;left:50%;top:-47px;transform:translateX(-50%);display:grid;grid-template-columns:74px 74px;gap:18px;align-items:center;font-weight:800;font-size:16px;font-variant-numeric:tabular-nums;z-index:3;white-space:nowrap;pointer-events:none}
-.target-half.a{text-align:right;color:var(--a)}
-.target-half.b{text-align:left;color:var(--b)}
+.target-number{position:absolute;left:var(--win-position,50%);top:-47px;transform:translateX(-50%);font-weight:800;font-size:16px;color:var(--accent);font-variant-numeric:tabular-nums;z-index:3;white-space:nowrap;pointer-events:none;transition:left .18s ease}
 .nameplates{position:absolute;left:0;top:77px;width:100%;pointer-events:none;font-size:23px;font-weight:820;letter-spacing:-.02em}
 .player-name{position:absolute;max-width:43%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .player-name.a{left:clamp(0px,calc(50% - var(--bar-half)),calc(50% - 110px));text-align:left;padding-right:8px;color:var(--a)}
@@ -163,7 +159,7 @@ dialog h2{margin:0 0 18px;font-size:21px;line-height:1.1}
   .stage{height:128px}
   .domain{margin-inline:64px;height:52px}
   .track{height:48px;border-radius:6px}
-  .target-number{top:-36px;font-size:13px;grid-template-columns:56px 56px;gap:13px}
+  .target-number{top:-36px;font-size:13px}
   .marker{height:102px;top:-11px}
   .nameplates{top:57px;font-size:18px}
   .player-name.a{left:clamp(0px,calc(50% - var(--bar-half)),calc(50% - 48px))}
@@ -236,17 +232,14 @@ dialog h2{margin:0 0 18px;font-size:21px;line-height:1.1}
     <div class="hero">
       <div class="stage" role="img" aria-label="Snooker frame scores and remaining points" id="scoregraphic">
         <div class="domain" id="domain">
-          <div class="target-number" id="target-number" aria-hidden="true">
-            <span class="target-half a" id="target-a">73.5</span>
-            <span class="target-half b" id="target-b">73.5</span>
-          </div>
+          <div class="target-number" id="target-number" aria-hidden="true"><span id="target-value">147</span></div>
           <div class="track" id="track">
             <div class="fill a" id="fill-a"></div>
             <div class="fill b" id="fill-b"></div>
             <div class="hatch a" id="hatch-a" hidden></div>
             <div class="hatch b" id="hatch-b" hidden></div>
           </div>
-          <div class="marker a" id="marker" title="Centre crossing boundary; numbers show how far each player is below or beyond it"></div>
+          <div class="marker a" id="marker" title="Opponent's highest possible score without snookers"></div>
           <div class="score a active" id="score-panel-a">
             <span class="identity">A</span><strong id="score-a">0</strong>
           </div>
@@ -509,27 +502,28 @@ dialog h2{margin:0 0 18px;font-size:21px;line-height:1.1}
     $('score-panel-a').classList.toggle('three-digit',String(s.a).length>=3);
     $('score-panel-b').classList.toggle('three-digit',String(s.b).length>=3);
     $('name-a').textContent=state.names[0]||'Player A';$('name-b').textContent=state.names[1]||'Player B';
-    // Use the exact midpoint of the total possible frame score.
-    // For an even total, the midpoint is a reachable draw (e.g. 132 / 2 = 66).
-    // For an odd total, the midpoint sits between attainable scores (147 / 2 = 73.5).
-    // Below: points to draw or reach the midpoint; above: signed surplus.
-    const boundary=s.total/2;
-    const margin=points=>{
-      const delta=points-boundary;
-      const magnitude=Math.abs(delta);
-      const value=Number.isInteger(magnitude)?String(magnitude):magnitude.toFixed(1);
-      return delta>0?'+'+value:value;
-    };
-    const marginA=margin(s.a),marginB=margin(s.b);
-    $('target-a').textContent=marginA;
-    $('target-b').textContent=marginB;
-    // Both ends contract symmetrically. A potted red replaces 8 common
-    // possible points with 1 scored + 7 conditional; the target stays fixed
-    // until a colour opportunity is resolved or lost.
+    // The win line is the opponent's reachable maximum with ordinary scoring.
+    // The striker's colour bonus is exclusive and does not increase that maximum.
+    const who=state.striker;
+    const opponentReach=who===0?s.reachB:s.reachA;
+    const ownScore=who===0?s.a:s.b;
+    const gap=ownScore-opponentReach;
+    const gapLabel=gap>0?'+'+gap:String(-gap);
+    $('target-value').textContent=gapLabel;
+    // Map the opponent's maximum onto the scored-point axis from the striker's
+    // end. The track contracts about the fixed centre as points disappear.
     const scale=Math.max(147,s.total,1),fraction=s.total/scale*100;
     $('domain').style.setProperty('--bar-width',fraction+'%');
     $('domain').style.setProperty('--bar-half',fraction/2+'%');
     const share=Math.max(s.total,1);
+    // From the left for A, from the right for B. Distances are points, not %
+    // of one player's own reach: this makes crossing the line meaningful.
+    const thresholdFraction=Math.max(0,Math.min(1,opponentReach/share));
+    const localPosition=who===0?thresholdFraction:1-thresholdFraction;
+    const markerPosition=50+(localPosition-.5)*fraction;
+    $('domain').style.setProperty('--win-position',markerPosition+'%');
+    $('marker').dataset.opponentReach=opponentReach;
+    $('marker').dataset.gap=gap;
     const pctA=s.a/share*100, pctB=s.b/share*100;
     const widthBonus=s.edge/share*100;
     $('fill-a').style.width=pctA+'%';$('fill-b').style.width=pctB+'%';
@@ -546,7 +540,7 @@ dialog h2{margin:0 0 18px;font-size:21px;line-height:1.1}
     $('scoregraphic').setAttribute('aria-label',
       `${state.names[0]||'Player A'} ${s.a}, ${state.names[1]||'Player B'} ${s.b}, ${s.remain} common points left, `+
       (s.edge?`${s.edge} provisional to ${(state.names[state.striker]|| (state.striker===0?'Player A':'Player B'))}, `:'')+
-      `centre crossing boundary ${boundary}; A distance ${marginA}, B distance ${marginB}. `+
+      `opponent maximum ${opponentReach}; striker distance ${gapLabel}. `+
       (needA?'A needs snookers. ':'')+(needB?'B needs snookers. ':''));
     $('break').textContent=state.break;
     $('reds').textContent=state.reds;$('reds-container').hidden=state.reds===0;
